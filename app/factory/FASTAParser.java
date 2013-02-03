@@ -50,22 +50,33 @@ public class FASTAParser {
 				}
 			}
 			reader.close(); // close input file reader
-			this.verifyParser(); // verify parsing was a success
+			this.validate(); // ensure objects have sequences and are sound
 		}
 		else {
 			throw new FileNotFoundException("Invalid FASTA [ERROR]");
 		}
 	}
-	
+
 	/**
-	 * Verify the parser processed a valid FASTA file.
+	 * Verify the parser processed a sound FASTA file.
 	 * */
-	private void verifyParser() {
+	private void validate() {
 		if (this.getNumSequences() == 0) { // if no seqs parsed, exit
-			throw new NullPointerException("Input file is not FASTA [ERROR]");
+			throw new NullPointerException("Input is not of FASTA format [ERROR]");
 		}
-		else { // display the number of sequences parsed
-			Presenter.out(this.getNumSequences() +" sequences parsed [OK]", true);
+		else { // iterate over each FASTA entry and make sure it has sequence
+			boolean is_parser_valid = true;
+			for (FASTAEntry e: this.getFastaEntries()) {
+				if (e.getSequenceLength() == 0) {
+					is_parser_valid = false; // parser invalid if no sequence
+				}
+			}
+			if (is_parser_valid == false) { // if a FASTA entry is invalid
+				throw new NullPointerException("Sequence missing for FASTA entry [ERROR]");
+			}
+			else { // if all FASTA entries are good, proceed
+				Presenter.out(this.getNumSequences() +" sequences parsed [OK]", true);
+			}
 		}
 	}
 
