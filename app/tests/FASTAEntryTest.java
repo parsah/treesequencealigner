@@ -6,7 +6,7 @@ import model.FASTAEntry;
 
 import org.junit.Test;
 
-public class TestFASTAEntry {
+public class FASTAEntryTest {
 	
 	@Test
 	public void testFASTALength() {

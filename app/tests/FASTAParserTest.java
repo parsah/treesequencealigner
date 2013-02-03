@@ -4,7 +4,7 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
-public class TestFASTAParser {
+public class FASTAParserTest {
 	
 	// If parsing was not possible, there must be no sequences
 	@Test
