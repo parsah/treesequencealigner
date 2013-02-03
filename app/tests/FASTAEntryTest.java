@@ -20,7 +20,7 @@ public class FASTAEntryTest {
 	public void testNoFASTASequence() {
 		// No supplied sequence yields null
 		FASTAEntry entry = new FASTAEntry();
-		assertNull(entry.getSequence());
+		assertEquals(entry.getSequence(), "");
 	}
 	
 	@Test

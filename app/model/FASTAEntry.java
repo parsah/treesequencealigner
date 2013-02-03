@@ -6,8 +6,8 @@ public class FASTAEntry {
 
 	// Creates a bare-bones FASTA object
 	public FASTAEntry() {
-		this.setHeader(null); // initially, no header
-		this.setSequence(null); // initially, no sequence
+		this.setHeader(""); // initially, no header
+		this.setSequence(""); // initially, no sequence
 	}
 
 	/**
