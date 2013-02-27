@@ -11,9 +11,10 @@ public class TreeSequenceAligner {
 	public static void main(String[] args) throws IOException {
 		try {
 			System.out.println(Presenter.getJVMStats());
-            FASTAParser parser = new FASTAParser(new File(new File("").
-                    getAbsolutePath()+"/test_data/test_seqs.fasta"));
+			FASTAParser parser = new FASTAParser(new File(new File("").
+					getAbsolutePath()+"/test_data/test_seqs.fasta"));
 			parser.parse();
+			
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		} catch (IOException e) {

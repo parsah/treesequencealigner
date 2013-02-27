@@ -21,8 +21,9 @@ public class FASTAParser {
 	/**
 	 * Create a bare-bone FASTA-parser object which ultimately produces
 	 * a list of parsed FASTA objects
+	 * @throws IOException 
 	 * */
-	public FASTAParser(File input) {
+	public FASTAParser(File input) throws IOException {
 		this.setFastaEntries(new ArrayList<FASTAEntry>()); // empty list
 		this.setFastaFile(input); // set the user-provided input
 	}
@@ -33,7 +34,7 @@ public class FASTAParser {
 	 * @throws IOException 
 	 * */
 	public void parse() throws IOException {
-		if (this.getFastaFile().isFile()) {
+		if (this.getFastaFile().exists()) {
 			Presenter.out("Parsing " + this.getFastaFile(), true);
 			BufferedReader reader = new BufferedReader( // read FASTA file
 					new FileReader(this.getFastaFile()));
