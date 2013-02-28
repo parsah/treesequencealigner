@@ -34,6 +34,7 @@ public class FASTAParser {
 	 * @throws IOException 
 	 * */
 	public void parse() throws IOException {
+		int counter = 0;
 		if (this.getFastaFile().exists()) {
 			Presenter.out("Parsing " + this.getFastaFile(), true);
 			BufferedReader reader = new BufferedReader( // read FASTA file
@@ -44,6 +45,7 @@ public class FASTAParser {
 				if (eachLine.startsWith(">")) {
 					entry = new FASTASequence();
 					entry.setHeader(eachLine.substring(1, eachLine.length()));
+					entry.setSeqID(++counter);
 					this.getFastaEntries().add(entry);
 				}
 				else {

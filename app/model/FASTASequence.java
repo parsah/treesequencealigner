@@ -3,11 +3,13 @@ package model;
 public class FASTASequence {
 	private String sequence; // FASTA sequence
 	private String header; // FASTA header
+	private int seqID; // integer to help ID the sequence
 
 	// Creates a bare-bones FASTA object
 	public FASTASequence() {
 		this.setHeader(""); // initially, no header
 		this.setSequence(""); // initially, no sequence
+		this.setSeqID(0);
 	}
 
 	/**
@@ -50,6 +52,11 @@ public class FASTASequence {
 		return this.getSequence().length();
 	}
 	
+	@Override
+	public String toString() {
+		return "\"" + this.getHeader() + "\"";
+	}
+	
 	/**
 	 * Represents a behavior to model object hashes
 	 * @return object hash solely based on the header's hashcode
@@ -73,6 +80,20 @@ public class FASTASequence {
 		else {
 			return false;
 		}
+	}
+
+	/**
+	 * @return the sequence ID
+	 */
+	public int getSeqID() {
+		return seqID;
+	}
+
+	/**
+	 * @param seqID the sequenceNum to set
+	 */
+	public void setSeqID(int seqID) {
+		this.seqID = seqID;
 	}
 
 }
