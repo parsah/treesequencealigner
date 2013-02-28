@@ -1,11 +1,11 @@
 package model;
 
-public class FASTAEntry {
+public class FASTASequence {
 	private String sequence; // FASTA sequence
 	private String header; // FASTA header
 
 	// Creates a bare-bones FASTA object
-	public FASTAEntry() {
+	public FASTASequence() {
 		this.setHeader(""); // initially, no header
 		this.setSequence(""); // initially, no sequence
 	}
@@ -46,7 +46,7 @@ public class FASTAEntry {
 	 * Returns the length of the FASTA sequence entry
 	 * @return sequence length
 	 * */
-	public int getSequenceLength() {
+	public int length() {
 		return this.getSequence().length();
 	}
 	
@@ -67,7 +67,7 @@ public class FASTAEntry {
 	 * */
 	@Override
 	public boolean equals( Object obj ) {
-		FASTAEntry fasta = (FASTAEntry)obj;
+		FASTASequence fasta = (FASTASequence)obj;
 		if( fasta.getHeader() == this.getHeader() )
 			return true;
 		else {

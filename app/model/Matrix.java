@@ -9,7 +9,7 @@ package model;
 
 public class Matrix {
 	
-	private double[][] matrix; // encapsulates actual dataset.
+	private double[][] data; // encapsulates actual dataset.
 	private String columnNames; // column names
 	private String rowNames; // row names
 	
@@ -18,7 +18,7 @@ public class Matrix {
 	 * */
 	public Matrix() {
 		this.setColumnNames(null);
-		this.setMatrix(null);
+		this.setData(null);
 		this.setRowNames(null);
 	}
 	
@@ -26,7 +26,7 @@ public class Matrix {
 	 * Create a Matrix object given only a 2D-array of values.
 	 * */
 	public Matrix(double[][] data) {
-		this.setMatrix(data);
+		this.setData(data);
 	}
 	
 	/**
@@ -37,7 +37,7 @@ public class Matrix {
 		System.out.println("--- MATRIX DEBUGGER ---");
 		for (int i = 0; i < this.getHeight(); i++) {
 			for (int j = 0; j < this.getWidth(); j++) {
-				System.out.print(this.getMatrix()[i][j] + "\t");
+				System.out.print(this.getData()[i][j] + "\t");
 			}
 			System.out.println();
 		}
@@ -49,7 +49,7 @@ public class Matrix {
 	 * @return width of Matrix (number of columns)
 	 * */
 	public int getWidth() {
-		return this.getMatrix()[0].length;
+		return this.getData()[0].length;
 	}
 	
 	/**
@@ -57,7 +57,7 @@ public class Matrix {
 	 * @return height of Matrix (number of rows)
 	 * */
 	public int getHeight() {
-		return this.getMatrix().length;
+		return this.getData().length;
 	}
 	
 	/**
@@ -66,7 +66,7 @@ public class Matrix {
 	 * @return list of values referencing a given row.
 	 * */
 	public double[] getRow(int row) {
-		return this.getMatrix()[row];
+		return this.getData()[row];
 	}
 	
 	/**
@@ -85,15 +85,15 @@ public class Matrix {
 	/**
 	 * @return the matrix
 	 */
-	public double[][] getMatrix() {
-		return matrix;
+	public double[][] getData() {
+		return data;
 	}
 
 	/**
 	 * @param matrix the matrix to set
 	 */
-	public void setMatrix(double[][] matrix) {
-		this.matrix = matrix;
+	public void setData(double[][] matrix) {
+		this.data = matrix;
 	}
 
 	/**

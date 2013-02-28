@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import factory.AlignmentFactory;
 import factory.FASTAParser;
 
 public class TreeSequenceAligner {
@@ -14,6 +15,8 @@ public class TreeSequenceAligner {
 			FASTAParser parser = new FASTAParser(new File(new File("").
 					getAbsolutePath()+"/test_data/test_seqs.fasta"));
 			parser.parse();
+			// Specify sequences used for N/W parsing.
+			AlignmentFactory.exhaustiveAlignment(parser.getFastaEntries());
 			
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());

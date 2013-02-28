@@ -2,7 +2,7 @@ package tests;
 
 import static org.junit.Assert.*;
 
-import model.FASTAEntry;
+import model.FASTASequence;
 
 import org.junit.Test;
 
@@ -11,24 +11,24 @@ public class FASTAEntryTest {
 	@Test
 	public void testFASTALength() {
 		// Test a FASTA entry is of the right size
-		FASTAEntry entry = new FASTAEntry();
+		FASTASequence entry = new FASTASequence();
 		entry.setSequence("ATCTTACTTCATCATCAT");
-		assertEquals(entry.getSequenceLength(), 18);
+		assertEquals(entry.length(), 18);
 	}
 	
 	@Test
 	public void testNoFASTASequence() {
 		// No supplied sequence yields null
-		FASTAEntry entry = new FASTAEntry();
+		FASTASequence entry = new FASTASequence();
 		assertEquals(entry.getSequence(), "");
 	}
 	
 	@Test
 	public void testTwoSameHeadersEquality() {
 		// Test whether two sequences with same headers are equal
-		FASTAEntry fastaA = new FASTAEntry();
+		FASTASequence fastaA = new FASTASequence();
 		fastaA.setHeader("A"); // create a random fasta header
-		FASTAEntry fastaB = new FASTAEntry();
+		FASTASequence fastaB = new FASTASequence();
 		fastaB.setHeader("A"); // create another fasta header
 		assertEquals(fastaA, fastaB); // equality is based on header ID
 	}
@@ -36,9 +36,9 @@ public class FASTAEntryTest {
 	@Test
 	public void testTwoDifferentHeadersEquality() {
 		// Test whether two sequences with different headers are not equal
-		FASTAEntry fastaA = new FASTAEntry();
+		FASTASequence fastaA = new FASTASequence();
 		fastaA.setHeader("A"); // create a random fasta header
-		FASTAEntry fastaB = new FASTAEntry();
+		FASTASequence fastaB = new FASTASequence();
 		fastaB.setHeader("AA"); // create another fasta header
 		assertNotSame(fastaA, fastaB); // equality is based on header ID
 	}

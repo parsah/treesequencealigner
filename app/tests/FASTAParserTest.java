@@ -6,7 +6,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import model.FASTAEntry;
+import model.FASTASequence;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -25,8 +25,8 @@ public class FASTAParserTest {
 		try {
 			FASTAParser parser = new FASTAParser(new File("./test_data/test_seqs.fasta"));
 			parser.parse();
-			for (FASTAEntry e: parser.getFastaEntries()) {
-				assertTrue(e instanceof FASTAEntry);
+			for (FASTASequence e: parser.getFastaEntries()) {
+				assertTrue(e instanceof FASTASequence);
 			}
 		} catch (IOException e) { }
 	}
@@ -38,8 +38,8 @@ public class FASTAParserTest {
 			FASTAParser parser = new FASTAParser(new File("./test_data/test_seqs.fasta"));
 			parser.parse();
 			int numSeqs = 0;
-			for (FASTAEntry e: parser.getFastaEntries()) {
-				if (e instanceof FASTAEntry) {
+			for (FASTASequence e: parser.getFastaEntries()) {
+				if (e instanceof FASTASequence) {
 					numSeqs ++;
 				}
 			}

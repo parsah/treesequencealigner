@@ -7,7 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import model.FASTAEntry;
+import model.FASTASequence;
 import runtime.Presenter;
 
 /**
@@ -15,7 +15,7 @@ import runtime.Presenter;
  * a list of FASTAEntry objects
  * */
 public class FASTAParser {
-	private ArrayList<FASTAEntry> fastaEntries; // Parsed FASTA objects
+	private ArrayList<FASTASequence> fastaEntries; // Parsed FASTA objects
 	private File fastaFile; // input fasta file
 
 	/**
@@ -24,7 +24,7 @@ public class FASTAParser {
 	 * @throws IOException 
 	 * */
 	public FASTAParser(File input) throws IOException {
-		this.setFastaEntries(new ArrayList<FASTAEntry>()); // empty list
+		this.setFastaEntries(new ArrayList<FASTASequence>()); // empty list
 		this.setFastaFile(input); // set the user-provided input
 	}
 
@@ -39,10 +39,10 @@ public class FASTAParser {
 			BufferedReader reader = new BufferedReader( // read FASTA file
 					new FileReader(this.getFastaFile()));
 			String eachLine = ""; // represents each line in the FASTA
-			FASTAEntry entry = new FASTAEntry(); // current entry
+			FASTASequence entry = new FASTASequence(); // current entry
 			while ((eachLine = reader.readLine()) != null) {
 				if (eachLine.startsWith(">")) {
-					entry = new FASTAEntry();
+					entry = new FASTASequence();
 					entry.setHeader(eachLine.substring(1, eachLine.length()));
 					this.getFastaEntries().add(entry);
 				}
@@ -67,8 +67,8 @@ public class FASTAParser {
 		}
 		else { // iterate over each FASTA entry and make sure it has sequence
 			boolean is_parser_valid = true;
-			for (FASTAEntry e: this.getFastaEntries()) {
-				if (e.getSequenceLength() == 0) {
+			for (FASTASequence e: this.getFastaEntries()) {
+				if (e.length() == 0) {
 					is_parser_valid = false; // parser invalid if no sequence
 				}
 			}
@@ -93,7 +93,7 @@ public class FASTAParser {
 	 * Return list of FASTA objects
 	 * @return the fastaEntries
 	 */
-	public ArrayList<FASTAEntry> getFastaEntries() {
+	public ArrayList<FASTASequence> getFastaEntries() {
 		return fastaEntries;
 	}
 
@@ -101,7 +101,7 @@ public class FASTAParser {
 	 * Sets a list of FASTA objects
 	 * @param fastaEntries the fastaEntries to set
 	 */
-	public void setFastaEntries(ArrayList<FASTAEntry> fastaEntries) {
+	public void setFastaEntries(ArrayList<FASTASequence> fastaEntries) {
 		this.fastaEntries = fastaEntries;
 	}
 
