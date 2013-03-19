@@ -8,6 +8,8 @@ import factory.AlignmentFactory;
 import factory.FASTAParser;
 
 public class TreeSequenceAligner {
+	public static final int GAP_OPEN = 0; // alignment gap-open cost.
+	public static final int GAP = -8; // alignment gap-extension cost.
 
 	public static void main(String[] args) throws IOException {
 		try {

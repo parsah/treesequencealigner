@@ -1,7 +1,11 @@
 package model;
 
+/**
+ * References a high-level Needleman-Wunsch alignment object. Such an
+ * object aligns two FASTASequence objects whereby one is a query and
+ * the other is a target.
+ * */
 public class NeedlemanWunsch {
-
 	private Matrix matrix;
 	private FASTASequence query;
 	private FASTASequence target;
@@ -35,7 +39,11 @@ public class NeedlemanWunsch {
 			}
 		}
 	}
-
+	
+	/**
+	 * Aligns the query and target FASTASequence objects using the
+	 * Needleman-Wunsch algorithm.
+	 * */
 	public void align() {
 		for (int i = 1; i <= this.getQuery().length(); i++) {
 			for (int j = 1; j <= this.getTarget().length(); j++) {
@@ -49,6 +57,11 @@ public class NeedlemanWunsch {
 		}
 	}
 
+	/**
+	 * Traverses the alignment matrix to yield two alignment strings. One
+	 * is the alignment for the query and the other is the alignment for
+	 * the baseline sequence.
+	 * */
 	public void traceBack() {
 		String mAlignmentSeqA = "";
 		String mAlignmentSeqB = "";
@@ -79,8 +92,7 @@ public class NeedlemanWunsch {
 		System.out.println(mAlignmentSeqA);
 		System.out.println(mAlignmentSeqB);
 	}
-
-
+	
 	private int getWeight(int i, int j) {
 		char charQuery = this.getQuery().getSequence().charAt(i-1);
 		char charTarget = this.getTarget().getSequence().charAt(j-1);
@@ -104,7 +116,6 @@ public class NeedlemanWunsch {
 		int matrixWidth = this.getMatrix().getWidth();
 		return this.getMatrix().getData()[matrixHeight-1][matrixWidth-1];
 	}
-
 
 	/**
 	 * @return the matrix
