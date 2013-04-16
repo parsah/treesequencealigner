@@ -208,7 +208,7 @@ def parse_output(fname):
 	return alreadyDone
 
 # Executes the pairwise application
-class FactoryDriver():
+class PairwiseDriver():
 	def __init__(self, targets, queries, input_state):
 		self.targets = targets # factory operates given targets and queries
 		self.queries = queries
@@ -250,7 +250,7 @@ class FactoryDriver():
 		try:
 			for target in self.targets: # per fasta, create a concurrent job, f.
 				if target.name not in self.priorCompletions:
-					f = executor.submit(mapper, target, queries, self.costs, self.submat, self.nodeTypes, queryCompletions)
+					f = executor.submit(pairwise_mapper, target, queries, self.costs, self.submat, self.nodeTypes, queryCompletions)
 					f.add_done_callback(self._callback)
 			executor.shutdown()
 			self.close_output_buffers()
@@ -338,7 +338,7 @@ class FactoryDriver():
 		out(' --> ' + target + ' [OK] '+str(self.num_complete)+' of '+len(self.targets)+' at '+datetime.time(datetime.now())) # print-out progress
 
 # Maps each query sequence against a set of targets (itself)
-def mapper(target, queries, costs, submat, nodeTypes, priorCompletions):
+def pairwise_mapper(target, queries, costs, submat, nodeTypes, priorCompletions):
 	results = [] # K => target, V => aligned queries 
 	# get the gap and substitution matrix
 	for query in queries:
@@ -368,7 +368,7 @@ if __name__ == '__main__':
 			queries = targets
 		else:
 			queries = input_state.parse_fasta(input_state.fname2)
-		driver = FactoryDriver(targets, queries, input_state)
+		driver = PairwiseDriver(targets, queries, input_state)
 		driver.start() # start the factory
 
 	except (IOError, KeyboardInterrupt, IndexError) as e:

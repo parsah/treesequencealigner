@@ -35,7 +35,6 @@ def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
 			# Add the cost to the enclosing AT pair
 			if (len(CostStack) > 0):
 				CostStack[-1] += currCost
-				
 	return taDict
 
 # Implementation of global alignment - Needleman-Wunsch
@@ -251,7 +250,6 @@ class NeedlemanWunsch():
 					self.directionMat[i][j] = 2
 					self.backPos[i,j] = upi,upj
 					#out('UP')
-		print('',l1, l2)
 		i, j = l1, l2 # for trace-back process 
 		keepGapping = 0
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
