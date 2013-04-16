@@ -10,34 +10,25 @@ class Matrix():
     def __init__(self, nrows, ncols):
         self.nrows = nrows
         self.ncols = ncols
-        self.data = [[0.0 for _ in range(self.ncols)] 
-                     for _ in range(self.nrows)]
-        self.state = [[False for _ in range(self.ncols)] 
+        self._data = [[0.0 for _ in range(self.ncols)] 
                      for _ in range(self.nrows)]
     
-    def get_data(self):
-        return self.data
+    def get_data(self,i,j):
+		return self._data[i][j]
+	
+	def set_data(self,i,j,val):
+		self._data[i][j] = val
+    
+	def transpose(self):
+		return self.transpose
     
     def debug(self):
         ''' 
         Useful method to print-out an entire matrix row-by-row.
         '''
         for rownum in range(self.nrows):
-            print(self.data[rownum], self.state[rownum])
+            print(self._data[rownum], self._state[rownum])
             
-    def transpose(self):
-        ''' 
-        Transpose the matrix; in other words, cell at position [2, 3] is
-        now at position [3, 2]. 
-        '''
-        new_matrix = Matrix(nrows=self.ncols, ncols=self.nrows)
-        for rownum in range(self.nrows):
-            for colnum in range(self.ncols):
-                # what is a row is now indexed as a column, and vice-versa.
-                new_matrix.data[colnum][rownum] = self.data[rownum][colnum]
-                new_matrix.state[colnum][rownum] = self.state[rownum][colnum]
-        return new_matrix
-        
 #if __name__ == '__main__':
 #    m = Matrix(nrows=5, ncols=2)
 #    m.data[0][0] = 12
