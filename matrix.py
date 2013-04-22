@@ -2,6 +2,8 @@
 A high-level class used for modeling a Matrix data-structure.
 '''
 
+from transpose import Transpose
+
 class Matrix():
 	''' 
 	A Matrix is your traditional multi-dimensional array whereby its 
