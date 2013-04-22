@@ -11,7 +11,9 @@ class Matrix():
 		self.nrows = nrows
 		self.ncols = ncols
 		self._data = [[0.0 for _ in range(self.ncols)] 
-                     for _ in range(self.nrows)]
+                     	       for _ in range(self.nrows)]
+		self.transpose = Transpose(self)
+		self.T = self.transpose
     
 	def get_data(self,i,j):
 		return self._data[i][j]
