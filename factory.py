@@ -2,8 +2,11 @@ import sys
 from matrix import Matrix
 from wrapper import DirectionalMatrixWrapper
 
-# Creates a dictionary for a given tree sequence linking each T node to an associated A node
 def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
+	'''
+	Creates a dictionary for a given tree sequence linking each T node to 
+	an associated A node.
+	'''
 	# Dictionary with (key,value) pairs of (T-node index, A-node index) as well as (str(T-node index), total gap cost)
 	taDict = {}
 	AStack = []
@@ -376,4 +379,3 @@ def parse_nodetypes(fname):
 	
 def default_nodetypes():
 	return {'A':'A','C':'C','T':'T'}
-

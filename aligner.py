@@ -1,13 +1,12 @@
-
 import argparse
 import platform
 import concurrent.futures
 import sys
 import os
 import factory
-from factory import NeedlemanWunsch
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
+from model import NeuriteSequence
 
 # Validates user-provided command-line arguments
 class ArgumentValidator():
@@ -138,8 +137,12 @@ class InputWrapperState():
         return self.score_type
         
     # Trivial function to parse a fasta file
-    def parse_fasta(self,fname):
-        queries = list(SeqIO.parse(fname, 'fasta')) # easy indexing
+    def parse_fasta(self, fname):
+        parsed_fasta = list(SeqIO.parse(fname, 'fasta')) # easy indexing
+        queries = [] # references list of parsed sequences
+        for i in parsed_fasta: # cast as a neuronal sequence; easy modeling.
+            s = NeuriteSequence(sequence=str(i.seq), name=i.name)
+            queries.append(s)
         out(str(len(queries)) + ' queries parsed [OK]')
         return queries # return set of fasta entries
 
@@ -250,7 +253,7 @@ class MultipleSequenceDriver():
         msa_string = ''
         s0 = items[0]
         s1 = items[1]
-        nw = NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
+        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
         align_s1, align_s2 = nw.prettify()[1]
         cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
         print(cp.get_alignment())
