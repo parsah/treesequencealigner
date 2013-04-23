@@ -258,22 +258,29 @@ class MultipleSequenceDriver():
         for i, seq in enumerate(self.queries):
             print(seq.name, seq.seq)
         print()
-        
+        # get the first two input sequences
         s0 = self.queries[0]
         s1 = self.queries[1]
+        # pass them both into the tree--based Needleman--Wunsch algorithm.
         nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
-        align_s1, align_s2 = nw.prettify()[1]
-        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
-        print(cp.get_alignment())
-#        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
-#        print(cp.get_alignment())
-#        
-#        for i in range(2, len(items)):
-#            curr = items[i]
-#            print(curr.seq)
-#        # start iteration at index 1 and align with its prior index; similar
-#        # logic to how Fibonacci numbers are computed.
-#        alignment = ''
+        first_align, second_align = nw.prettify()[1]
+        # feed respective alignments into an analysis class and get consensus.
+        consensus = ConsensusProcessor(str1=first_align, 
+                                       str2=second_align).get_alignment()
+        print('seq0',s0)
+        print('seq1',s1)
+        print('->',consensus)
+        # since the first two sequences have been aligned, focus on all others.
+        for i in range(2, len(self.queries)):
+            curr_seq = self.queries[i]
+            print('\t', curr_seq)
+            nw = factory.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
+                                         costs=self.costs, submat=self.submat, 
+                                         nodeTypes=factory.default_nodetypes())
+            align_sA, align_sB = nw.prettify()[1]
+            consensus = ConsensusProcessor(str1=align_sA, 
+                                       str2=align_sB).get_alignment()
+        print('Alignment consensus:',consensus.seq)
 
 # Executes the pairwise application
 class PairwiseDriver():
