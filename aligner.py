@@ -225,14 +225,24 @@ class ConsensusProcessor():
     def get_alignment(self):
         ''' 
         Simple function to merge two strings and produce a consensus.
+        @return: NeuriteSequence object representing the consensus sequence.
         '''
         consensus = ''
         for idx, char1 in enumerate(self.str1):
+            char2 = self.str2[idx]
             if char1 == self.str2[idx]:
                 consensus += char1
             else:
-                consensus += '-'
-        return consensus
+                # Apply neuronal logic
+                if (char1 == 'A' and char2 == 'C') or (char2 == 'A' and char1 == 'C'):
+                    consensus += 'C'
+                if (char1 == 'A' and char2 == '-') or (char2 == 'A' and char1 == '-'):
+                    consensus += 'A'
+                if (char1 == 'T' and char2 == '-') or (char2 == 'T' and char1 == '-'):
+                    consensus += 'T'
+                if (char1 == 'C' and char2 == '-') or (char2 == 'C' and char1 == '-'):
+                    consensus += 'C'
+        return NeuriteSequence(name='alignment', sequence=consensus)
 
 # Executes multiple-sequence alignment
 class MultipleSequenceDriver():
@@ -249,11 +259,12 @@ class MultipleSequenceDriver():
             print(seq.name, seq.seq)
         print()
         
-#        msa_string = ''
-#        s0 = items[0]
-#        s1 = items[1]
-#        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
-#        align_s1, align_s2 = nw.prettify()[1]
+        s0 = self.queries[0]
+        s1 = self.queries[1]
+        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
+        align_s1, align_s2 = nw.prettify()[1]
+        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
+        print(cp.get_alignment())
 #        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
 #        print(cp.get_alignment())
 #        
