@@ -1,11 +1,13 @@
 
-import argparse, platform
-from Bio.SubsMat import MatrixInfo
-from Bio import SeqIO, Seq, Alphabet
-import concurrent.futures, numpy, sys, re, os, factory
-from datetime import datetime
-from collections import OrderedDict
+import argparse
+import platform
+import concurrent.futures
+import sys
+import os
+import factory
 from factory import NeedlemanWunsch
+from Bio.SubsMat import MatrixInfo
+from Bio import SeqIO
 
 # Validates user-provided command-line arguments
 class ArgumentValidator():
@@ -71,7 +73,7 @@ class CommandLineParser():
     def _init_params(self):
         param_reqd = self.parser.add_argument_group('Required Parameters')
         param_opts = self.parser.add_argument_group('Optional Parameters')
-        param_costs = self.parser.add_argument_group('Specific Costs')
+        #param_costs = self.parser.add_argument_group('Specific Costs')
 
         # Specify required arguments
         param_reqd.add_argument('-f', metavar='FILE', required=True,
@@ -331,13 +333,13 @@ class PairwiseDriver():
         elif self.score_type is 'alignment':
             return result[0]
         elif self.score_type is 'gaps':
-            return count_gaps(result)
+            return self.count_gaps(result)
         elif self.score_type is 'excess_gaps':
-            return count_excess_gaps(result)
+            return self.count_excess_gaps(result)
         elif self.score_type is 'short_normalized':
-            return calc_short_normalized(result)
+            return self.calc_short_normalized(result)
         elif self.score_type is 'long_normalized':
-            return calc_long_normalized(result)
+            return self.calc_long_normalized(result)
 
     # Just gets the total number of gaps in the alignment
     def count_gaps(self, result):
@@ -357,14 +359,14 @@ class PairwiseDriver():
         
     # Divides the score by the smaller sequence length
     def calc_short_normalized(self, result):
-        seq1Len = len(al1)-result[1][0].count('-')
-        seq2Len = len(al2)-result[1][1].count('-')
+        seq1Len = len(self.al1)-result[1][0].count('-')
+        seq2Len = len(self.al2)-result[1][1].count('-')
         return result[0]/min(seq1Len,seq2Len)
     
     # Divides the score by the larger sequence length    
     def calc_long_normalized(self, result):
-        seq1Len = len(al1)-result[1][0].count('-')
-        seq2Len = len(al2)-result[1][1].count('-')
+        seq1Len = len(self.al1)-result[1][0].count('-')
+        seq2Len = len(self.al2)-result[1][1].count('-')
         return result[0]/max(seq1Len,seq2Len)
         
     # Callback function once a thread is complete

@@ -1,6 +1,6 @@
-import numpy, sys, math
+import sys
 from matrix import Matrix
-from dir_mat_wrapper import DirMatWrapper
+from wrapper import DirectionalMatrixWrapper
 
 # Creates a dictionary for a given tree sequence linking each T node to an associated A node
 def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
@@ -189,8 +189,8 @@ class NeedlemanWunsch():
 		self.scoreMat = Matrix(l1+1, l2+1) # create matrix for storing counts
 		self.directionMat = Matrix(l1+1, l2+1)
 		# Each position contains a 2-tuple of the respective gap score and True if the gap is a continuation, False if it is new
-		self.leftMat = DirMatWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
-		self.upMat = DirMatWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
+		self.leftMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
+		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
 		self.scoreMat.set_data(0,0, 0)
 		for i in range(1, l1 + 1): # set each row by the desired gap
 			self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])

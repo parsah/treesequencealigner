@@ -1,18 +1,17 @@
-'''
-A wrapper for directional score matrices
-'''
-
 from matrix import Matrix
 
-class DirMatWrapper():
-
+class DirectionalMatrixWrapper():
+	'''
+	A wrapper for directional score matrices
+	'''
+	
 	def __init__(self,nrows,ncols,T=None):
 		self.nrows = nrows
 		self.ncols = ncols
 		if T is None:
 			self.score = Matrix(nrows,ncols)
 			self.extend_flag = Matrix(nrows,ncols)
-			self.T = DirMatWrapper(nrows,ncols,self)
+			self.T = DirectionalMatrixWrapper(nrows,ncols,self)
 		else:
 			self.T = T
 			self.score = T.score.T
