@@ -104,7 +104,7 @@ class NeedlemanWunsch():
 		return [ self.get_top_score(), self.get_alignment(), self.seq2.name ]
 
 	def determine_open_extend(self,i,j,m,directionM,dirScoreM,currentGapCost,gapDirection):
-		gapScore = m.getData(i,j) + currentGapCost
+		gapScore = m.get_data(i,j) + currentGapCost
 		# Add on the gap open cost if the prior position is not gapped in the same direction (gapping the same sequence)
 		if math.isnan(dirScoreM.score.get_data(i,j)):#[0]): # Previous position can't gap
 			gapScore += self.costs['gapopen']
@@ -162,7 +162,7 @@ class NeedlemanWunsch():
 			if self.nodeTypes[seq2[j-1]] == 'C' and TADict[i-1] is not -1:
 				# Calculate the total gap cost assuming the associated A-node matches a C-node
 				ACScore = get_score(seq1[gapPosi],seq2[j-1],self.submat)
-				gapScoreACFinish = m[gapPosi][j-1] + gapCostMajor + ACScore + self.costs['gapopen']
+				gapScoreACFinish = m.get_data(gapPosi,j-1) + gapCostMajor + ACScore + self.costs['gapopen']
 				# Determine which gap produces a higher overall score, and use that for this position's gap score
 				if gapScoreACFinish >= gapScoreGapFinish:
 					gapScore = gapScoreACFinish
