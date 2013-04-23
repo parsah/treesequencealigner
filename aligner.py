@@ -245,25 +245,24 @@ class MultipleSequenceDriver():
     # As of now, MSA alignment is a sequential algorithm.
     def align(self):
         out('--- Multiple sequence alignment mode ---')
-        items = list(self.queries)
-        for i, seq in enumerate(items):
-            print(seq.description, seq.seq)
+        for i, seq in enumerate(self.queries):
+            print(seq.name, seq.seq)
         print()
         
-        msa_string = ''
-        s0 = items[0]
-        s1 = items[1]
-        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
-        align_s1, align_s2 = nw.prettify()[1]
-        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
-        print(cp.get_alignment())
-        
-        for i in range(2, len(items)):
-            curr = items[i]
-            print(curr.seq)
-        # start iteration at index 1 and align with its prior index; similar
-        # logic to how Fibonacci numbers are computed.
-        alignment = ''
+#        msa_string = ''
+#        s0 = items[0]
+#        s1 = items[1]
+#        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
+#        align_s1, align_s2 = nw.prettify()[1]
+#        cp = ConsensusProcessor(str1=align_s1, str2=align_s2)
+#        print(cp.get_alignment())
+#        
+#        for i in range(2, len(items)):
+#            curr = items[i]
+#            print(curr.seq)
+#        # start iteration at index 1 and align with its prior index; similar
+#        # logic to how Fibonacci numbers are computed.
+#        alignment = ''
 
 # Executes the pairwise application
 class PairwiseDriver():
