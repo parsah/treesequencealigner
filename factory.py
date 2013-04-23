@@ -1,5 +1,6 @@
 import numpy, sys, math
 from matrix import Matrix
+from dir_mat_wrapper import DirMatWrapper
 
 # Creates a dictionary for a given tree sequence linking each T node to an associated A node
 def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
@@ -92,7 +93,7 @@ class NeedlemanWunsch():
 	
 	# return top (highest) alignment score given sequence 1 and 2
 	def get_top_score(self):
-		return self.scoreMat[-1][-1]
+		return self.scoreMat.get_data(-1,-1)
 	
 	# alignment string resultant from sequence 1 and 2
 	def get_alignment(self):
@@ -103,13 +104,13 @@ class NeedlemanWunsch():
 		return [ self.get_top_score(), self.get_alignment(), self.seq2.name ]
 
 	def determine_open_extend(self,i,j,m,directionM,dirScoreM,currentGapCost,gapDirection):
-		gapScore = m[i][j] + currentGapCost
+		gapScore = m.getData(i,j) + currentGapCost
 		# Add on the gap open cost if the prior position is not gapped in the same direction (gapping the same sequence)
-		if math.isnan(dirScoreM.data[i][j]):#[0]): # Previous position can't gap
+		if math.isnan(dirScoreM.score.get_data(i,j)):#[0]): # Previous position can't gap
 			gapScore += self.costs['gapopen']
 			scoreExtendPair = gapScore,False
-		elif directionM[i,j] is not gapDirection: # Previous position didn't choose gap
-			extendGapScore = dirScoreM.data[i][j] + currentGapCost
+		elif directionM.get_data(i,j) is not gapDirection: # Previous position didn't choose gap
+			extendGapScore = dirScoreM.score.get_data(i,j) + currentGapCost
 			openGapScore = gapScore + self.costs['gapopen']
 			if openGapScore >= extendGapScore: # new gap is best, go with previous position's choice
 				scoreExtendPair = openGapScore,False
@@ -178,27 +179,27 @@ class NeedlemanWunsch():
 			gapScore = 0 # original was set to None
 			gapPosi = 0
 			gapPosj = 0 
-		dirScoreM.data[i][j] = gapScore
-		dirScoreM.state[i][j] = isExtend
+		dirScoreM.score.set_data(i,j, gapScore)
+		dirScoreM.extend_flag.set_data(i,j, isExtend)
 		return [gapScore, gapPosi, gapPosj]
 
 	# Execute alignment
 	def _aligner(self):
 		l1, l2 = len(self.seq1.seq), len(self.seq2.seq)	
-		self.scoreMat = numpy.zeros((l1+1, l2+1)) # create matrix for storing counts
-		self.directionMat = numpy.zeros((l1+1, l2+1))
+		self.scoreMat = Matrix(l1+1, l2+1) # create matrix for storing counts
+		self.directionMat = Matrix(l1+1, l2+1)
 		# Each position contains a 2-tuple of the respective gap score and True if the gap is a continuation, False if it is new
-		self.leftMat = Matrix(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
-		self.upMat = Matrix(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
-		self.scoreMat[0][0] = 0
+		self.leftMat = DirMatWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
+		self.upMat = DirMatWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
+		self.scoreMat.set_data(0,0, 0)
 		for i in range(1, l1 + 1): # set each row by the desired gap
-			self.scoreMat[i][0] = self.costs['gap'] * i + self.costs['gapopen']
-			self.leftMat.data[i][0] = 0.0 #[0] = None
-			self.upMat.data[i][0] = 0.0
+			self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
+			self.leftMat.set_data(i,0, 0) #[0] = None
+			self.upMat.set_data(i,0, None)
 		for j in range(1, l2 + 1): # set each column by the desired gap
-			self.scoreMat[0][j] = self.costs['gap'] * j + self.costs['gapopen']
-			self.leftMat.data[0][j] = 0.0 #[0] = None
-			self.upMat.data[0][j] = 0.0
+			self.scoreMat[0,j] = self.costs['gap'] * j + self.costs['gapopen']
+			self.leftMat.set_data(0,j, 0) #[0] = None
+			self.upMat.set_data(0,j, None)
 		for i in range(1, l1+1): # per base-pair in sequence 1 ...
 			for j in range(1, l2+1): # per base-pair in sequence 2, align them
 			
@@ -207,7 +208,7 @@ class NeedlemanWunsch():
 				elif (self.nodeTypes[self.seq1.seq[i-1]] == 'T') ^ (self.nodeTypes[self.seq2.seq[j-1]] == 'T'):
 					score = None # no match if one is a T type and the other is not
 				else:
-					score = self.scoreMat[i - 1][j - 1] + get_score(self.seq1.seq[i-1], self.seq2.seq[j-1], self.submat)
+					score = self.scoreMat.get_data(i-1,j-1) + get_score(self.seq1.seq[i-1], self.seq2.seq[j-1], self.submat)
 				
 				# Cost for gapping left (over sequence 1)
 				left, lefti, leftj = self.calculate_gap(i,
@@ -226,7 +227,7 @@ class NeedlemanWunsch():
 												self.seq1.seq,
 												self.scoreMat.T,
 												self.directionMat.T,
-												self.upMat.transpose(),
+												self.upMat.T,
 												self.TADict2,
 												2)
 				
@@ -234,29 +235,29 @@ class NeedlemanWunsch():
 				#out(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
 				if score is not None and (left is None or score >= left) and (up is None or score >= up):
 					# Node match is allowed and produces the best score
-					self.scoreMat[i][j] = score
-					self.directionMat[i][j] = 0
+					self.scoreMat.set_data(i,j, score)
+					self.directionMat.set_data(i,j, 0)
 					self.backPos[i,j] = i-1,j-1
 					#out('MATCH')
 				elif left is not None and (up is None or left >= up):
 					# Gapping left is allows and produces the best score
-					self.scoreMat[i][j] = left
-					self.directionMat[i][j] = 1
+					self.scoreMat.set_data(i,j, left)
+					self.directionMat.set_data(i,j, 1)
 					self.backPos[i,j] = lefti,leftj
 					#out('LEFT')
 				else:
 					# Gapping up is allows and produces the best score
-					self.scoreMat[i][j] = up
-					self.directionMat[i][j] = 2
+					self.scoreMat.set_data(i,j, up)
+					self.directionMat.set_data(i,j, 2)
 					self.backPos[i,j] = upi,upj
 					#out('UP')
 		i, j = l1, l2 # for trace-back process 
 		keepGapping = 0
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
 			# if score is a gap in sequence 2 (direction is 1), only walk back on i
-			if keepGapping == 1 or keepGapping == 0 and self.directionMat[i][j] == 1:
+			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
 				# Check whether the choice of gapping left requires the leftward position to also gap left
-				if self.leftMat.state[i][j] == True:#[1]:
+				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
 					keepGapping = 1
 				else:
 					keepGapping = 0
@@ -284,9 +285,9 @@ class NeedlemanWunsch():
 					self.align2 += '-'
 					i -= 1
 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
-			elif keepGapping == 2 or keepGapping == 0 and self.directionMat[i][j] == 2:
+			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
 				# Check whether the choice of gapping up requires the leftward position to also gap up
-				if self.upMat.state[i][j] == True:
+				if self.upMat.extend_flag.get_data(i,j) == True:
 					keepGapping = 2
 				else:
 					keepGapping = 0
@@ -312,7 +313,7 @@ class NeedlemanWunsch():
 					self.align2 += self.seq2.seq[j-1]
 					j -= 1
 			# if the score is a match, walk-back one index in both i and j
-			elif self.directionMat[i][j] == 0:
+			elif self.directionMat.get_data(i,j) == 0:
 				keepGapping = 0
 				self.align1 += self.seq1.seq[i-1]
 				self.align2 += self.seq2.seq[j-1]
