@@ -197,7 +197,7 @@ class NeedlemanWunsch():
 			self.leftMat.score.set_data(i,0, None) #[0] = None
 			self.upMat.score.set_data(i,0, None)
 		for j in range(1, l2 + 1): # set each column by the desired gap
-			self.scoreMat[0,j] = self.costs['gap'] * j + self.costs['gapopen']
+			self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
 			self.leftMat.score.set_data(0,j, None) #[0] = None
 			self.upMat.score.set_data(0,j, None)
 		for i in range(1, l1+1): # per base-pair in sequence 1 ...
