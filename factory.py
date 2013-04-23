@@ -106,7 +106,7 @@ class NeedlemanWunsch():
 	def determine_open_extend(self,i,j,m,directionM,dirScoreM,currentGapCost,gapDirection):
 		gapScore = m.get_data(i,j) + currentGapCost
 		# Add on the gap open cost if the prior position is not gapped in the same direction (gapping the same sequence)
-		if math.isnan(dirScoreM.score.get_data(i,j)):#[0]): # Previous position can't gap
+		if dirScoreM.score.get_data(i,j) is None:#[0]): # Previous position can't gap
 			gapScore += self.costs['gapopen']
 			scoreExtendPair = gapScore,False
 		elif directionM.get_data(i,j) is not gapDirection: # Previous position didn't choose gap
