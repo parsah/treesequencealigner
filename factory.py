@@ -179,9 +179,9 @@ class NeedlemanWunsch():
 				gapScore = gapScoreGapFinish
 				gapPosj = j
 		else: # AType, no gapping allowed
-			gapScore = 0 # original was set to None
-			gapPosi = 0
-			gapPosj = 0 
+			gapScore = None # original was set to None
+			gapPosi = None
+			gapPosj = None 
 		dirScoreM.score.set_data(i,j, gapScore)
 		dirScoreM.extend_flag.set_data(i,j, isExtend)
 		return [gapScore, gapPosi, gapPosj]
