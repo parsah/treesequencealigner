@@ -235,9 +235,11 @@ class TreeIndexLogic():
         if (self.char1 == 'C' and self.char2 == '-') or (self.char2 == 'C' and self.char1 == '-'):
             return 'C'
 
-# Parses and processes the consensus string to ultimately yield a single
-# string which encapsulate the pairwise alignment.
-class ConsensusProcessor():
+class ConsensusAlignmentFactory():
+    '''
+    Parses and processes the consensus string to ultimately yield a single
+    string which encapsulate the pairwise alignment.
+    '''
     def __init__(self, str1, str2):
         self.str1 = str1
         self.str2 = str2
@@ -257,15 +259,15 @@ class ConsensusProcessor():
                consensus += TreeIndexLogic(char1, char2).get()
         return NeuriteSequence(name='alignment', sequence=consensus)
 
-# Executes multiple-sequence alignment
 class MultipleSequenceDriver():
+    ''' 
+    A high-level class to perform multiple sequence alignment.
+    '''
     def __init__(self, queries, input_state):
         self.queries = queries
         self.costs = input_state.get_penalties() # set costs to factory
         self.submat = input_state.get_submatrix() # set submatrix to factory
-        self.score_type = input_state.get_scoretype()
 
-    # As of now, MSA alignment is a sequential algorithm.
     def align(self):
         out('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
@@ -275,7 +277,7 @@ class MultipleSequenceDriver():
         nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
-        consensus = ConsensusProcessor(str1=first_align, 
+        consensus = ConsensusAlignmentFactory(str1=first_align, 
                                        str2=second_align).get_alignment()
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(self.queries)):
@@ -284,13 +286,45 @@ class MultipleSequenceDriver():
                                          costs=self.costs, submat=self.submat, 
                                          nodeTypes=factory.default_nodetypes())
             align_sA, align_sB = nw.prettify()[1]
-            consensus = ConsensusProcessor(str1=align_sA, 
+            consensus = ConsensusAlignmentFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
-        aln_string = NeuriteSequence(name='consensus', sequence=consensus)
-        return aln_string
+        return consensus # consensus sequence is of type NeuriteSequence.
 
-# Executes the pairwise application
+class ConsensusFilterFactory():
+    ''' 
+    Given a set of user-input sequences and its corresponding consensus
+    sequence, this class aims to map each sequence back to its consensus and
+    ultimately build a filtered consensus string. This filtered string ensures
+    that highly-conserved regions are kept but lesser-conserved regions are
+    replaced with a dash (-).
+    '''
+    def __init__(self, queries, consensus, input_state, thres):
+        self.consensus = consensus
+        self.threshold = thres
+        self.queries = queries
+        self.costs = input_state.get_penalties() # set costs to factory
+        self.submat = input_state.get_submatrix() # set submatrix to factory
+        
+    def initialize(self):
+        print('unfiltered consensus:', self.consensus)
+        for curr_seq in self.queries:
+            print(curr_seq)
+            nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.consensus, 
+                                    costs=self.costs, submat=self.submat, 
+                                    nodeTypes=factory.default_nodetypes())
+            first_align, second_align = nw.prettify()[1]
+            align_sA, align_sB = nw.prettify()[1]
+            print(align_sA)
+            print(align_sB)
+            print('\n')
+#             consensus = ConsensusAlignmentFactory(str1=align_sA, 
+#                                        str2=align_sB).get_alignment()
+        
+
 class PairwiseDriver():
+    '''
+    Executes the pairwise application
+    '''
     def __init__(self, targets, queries, input_state):
         self.targets = targets # factory operates given targets and queries
         self.queries = queries
@@ -454,9 +488,9 @@ if __name__ == '__main__':
         else: # else, start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
             aln_string = driver.align()
-            print(aln_string.seq)
-            for i in queries:
-                print(i)
+            # map queries back onto consensus and build a filtered consensus
+            f = ConsensusFilterFactory(queries, aln_string, input_state, 0.7)
+            f.initialize() # perform consensus filtering given the threshold.
 
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
