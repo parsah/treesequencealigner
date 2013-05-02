@@ -215,6 +215,26 @@ def parse_output(fname):
                     alreadyDone.append(sequenceName)
     return alreadyDone
 
+class TreeIndexLogic():
+    ''' 
+    A class which captures tree-specific logic given two characters.
+    @param char1: First character
+    @param char2: Second character
+    '''
+    def __init__(self, char1, char2):
+        self.char1 = char1
+        self.char2 = char2
+        
+    def get(self):
+        if (self.char1 == 'A' and self.char2 == 'C') or (self.char2 == 'A' and self.char1 == 'C'):
+            return 'C'
+        if (self.char1 == 'A' and self.char2 == '-') or (self.char2 == 'A' and self.char1 == '-'):
+            return 'A'
+        if (self.char1 == 'T' and self.char2 == '-') or (self.char2 == 'T' and self.char1 == '-'):
+            return 'T'
+        if (self.char1 == 'C' and self.char2 == '-') or (self.char2 == 'C' and self.char1 == '-'):
+            return 'C'
+
 # Parses and processes the consensus string to ultimately yield a single
 # string which encapsulate the pairwise alignment.
 class ConsensusProcessor():
@@ -233,15 +253,8 @@ class ConsensusProcessor():
             if char1 == self.str2[idx]:
                 consensus += char1
             else:
-                # Apply neuronal logic
-                if (char1 == 'A' and char2 == 'C') or (char2 == 'A' and char1 == 'C'):
-                    consensus += 'C'
-                if (char1 == 'A' and char2 == '-') or (char2 == 'A' and char1 == '-'):
-                    consensus += 'A'
-                if (char1 == 'T' and char2 == '-') or (char2 == 'T' and char1 == '-'):
-                    consensus += 'T'
-                if (char1 == 'C' and char2 == '-') or (char2 == 'C' and char1 == '-'):
-                    consensus += 'C'
+                # Apply neuronal logic given two specific characters.
+               consensus += TreeIndexLogic(char1, char2).get()
         return NeuriteSequence(name='alignment', sequence=consensus)
 
 # Executes multiple-sequence alignment
@@ -255,9 +268,6 @@ class MultipleSequenceDriver():
     # As of now, MSA alignment is a sequential algorithm.
     def align(self):
         out('--- Multiple sequence alignment mode ---')
-        for i, seq in enumerate(self.queries):
-            print(seq.name, seq.seq)
-        print()
         # get the first two input sequences
         s0 = self.queries[0]
         s1 = self.queries[1]
@@ -267,20 +277,17 @@ class MultipleSequenceDriver():
         # feed respective alignments into an analysis class and get consensus.
         consensus = ConsensusProcessor(str1=first_align, 
                                        str2=second_align).get_alignment()
-        print('seq0',s0)
-        print('seq1',s1)
-        print('->',consensus)
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(self.queries)):
             curr_seq = self.queries[i]
-            print('\t', curr_seq)
             nw = factory.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
                                          nodeTypes=factory.default_nodetypes())
             align_sA, align_sB = nw.prettify()[1]
             consensus = ConsensusProcessor(str1=align_sA, 
                                        str2=align_sB).get_alignment()
-        print('Alignment consensus:',consensus.seq)
+        aln_string = NeuriteSequence(name='consensus', sequence=consensus)
+        return aln_string
 
 # Executes the pairwise application
 class PairwiseDriver():
@@ -446,7 +453,10 @@ if __name__ == '__main__':
             driver.start() # start only pairwise alignment
         else: # else, start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
-            driver.align()
+            aln_string = driver.align()
+            print(aln_string.seq)
+            for i in queries:
+                print(i)
 
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
