@@ -43,7 +43,7 @@ def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
 
 # Implementation of global alignment - Needleman-Wunsch
 class NeedlemanWunsch():
-	def __init__(self, s1, s2, costs, submat, nodeTypes):
+	def __init__(self, s1, s2, costs, submat, nodeTypes, consensus=0):
 		self.seq1 = s1 # sequence 1
 		self.seq2 = s2 # sequence 2
 		self.costs = costs # dictionary of all costs (i.e. penalties)
@@ -59,6 +59,7 @@ class NeedlemanWunsch():
 		self.backPos = {} # the backtrace position from one position to its prior (contains integer pairs)
 		self.align1 = '' # alignment string for sequence 1
 		self.align2 = '' # alignment string for sequence 2
+		self.consensus = consensus
 		self._aligner()
 	
 	def create_node_types(self,nodeTypes):
@@ -213,8 +214,10 @@ class NeedlemanWunsch():
 				else:
 					score = self.scoreMat.get_data(i-1,j-1) + get_score(self.seq1.seq[i-1], self.seq2.seq[j-1], self.submat)
 				
-				# Cost for gapping left (over sequence 1)
-				left, lefti, leftj = self.calculate_gap(i,
+				left, up = None, None
+				if not self.consensus == 2: # If seq2 is consensus, can't put gap characters is seq1
+					# Cost for gapping left (over sequence 1)
+					left, lefti, leftj = self.calculate_gap(i,
 													j,
 													self.seq1.seq,
 													self.seq2.seq,
@@ -223,8 +226,9 @@ class NeedlemanWunsch():
 													self.leftMat,
 													self.TADict1,
 													1)
-				# Cost for gapping up (over sequence 2)
-				up, upj, upi = self.calculate_gap(j,
+				if not self.consensus == 1: # If seq1 is consensus, can't put gap characters is seq2
+					# Cost for gapping up (over sequence 2)
+					up, upj, upi = self.calculate_gap(j,
 												i,
 												self.seq2.seq,
 												self.seq1.seq,
