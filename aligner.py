@@ -309,9 +309,10 @@ class ConsensusFilterFactory():
         print('unfiltered consensus:', self.consensus)
         for curr_seq in self.queries:
             print(curr_seq)
+            # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
             nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.consensus, 
                                     costs=self.costs, submat=self.submat, 
-                                    nodeTypes=factory.default_nodetypes())
+                                    nodeTypes=factory.default_nodetypes(),consensus=2)
             first_align, second_align = nw.prettify()[1]
             align_sA, align_sB = nw.prettify()[1]
             print(align_sA)
