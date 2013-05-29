@@ -108,6 +108,8 @@ class NeedlemanWunsch():
 		return [ self.get_top_score(), self.get_alignment(), self.seq2.name ]
 
 	def determine_open_extend(self,i,j,m,directionM,dirScoreM,currentGapCost,gapDirection):
+		if m.get_data(i,j) is None:
+			return None,False
 		gapScore = m.get_data(i,j) + currentGapCost
 		# Add on the gap open cost if the prior position is not gapped in the same direction (gapping the same sequence)
 		if dirScoreM.score.get_data(i,j) is None:#[0]): # Previous position can't gap
@@ -166,15 +168,23 @@ class NeedlemanWunsch():
 			if self.nodeTypes[seq2[j-1]] == 'C' and TADict[i-1] is not -1:
 				# Calculate the total gap cost assuming the associated A-node matches a C-node
 				ACScore = get_score(seq1[gapPosi],seq2[j-1],self.submat)
-				gapScoreACFinish = m.get_data(gapPosi,j-1) + gapCostMajor + ACScore + self.costs['gapopen']
+				if m.get_data(gapPosi,j-1) is None:
+					gapScoreACFinish = None
+				else:
+					gapScoreACFinish = m.get_data(gapPosi,j-1) + gapCostMajor + ACScore + self.costs['gapopen']
+
 				# Determine which gap produces a higher overall score, and use that for this position's gap score
-				if gapScoreACFinish >= gapScoreGapFinish:
+				if gapScoreACFinish is not None and gapScoreACFinish >= gapScoreGapFinish:
 					gapScore = gapScoreACFinish
 					gapPosj = j-1
 					isExtend = False
-				else:
+				elif gapScoreGapFinish is not None:
 					gapScore = gapScoreGapFinish
 					gapPosj = j
+				else:
+					gapScore = None
+					gapPosj = j
+					isExtend = False
 			# If seq2 character is not a C, then use the total gap score assuming the A is also gapped
 			else:
 				gapScore = gapScoreGapFinish
@@ -211,11 +221,13 @@ class NeedlemanWunsch():
 					score = None # no match if one is a C type and the other is an A type
 				elif (self.nodeTypes[self.seq1.seq[i-1]] == 'T') ^ (self.nodeTypes[self.seq2.seq[j-1]] == 'T'):
 					score = None # no match if one is a T type and the other is not
+				elif self.scoreMat.get_data(i-1,j-1) is None:
+					score = None # Diagonal is an unreachable position due to pre-consensus
 				else:
 					score = self.scoreMat.get_data(i-1,j-1) + get_score(self.seq1.seq[i-1], self.seq2.seq[j-1], self.submat)
 				
 				left, up = None, None
-				if not self.consensus == 2: # If seq2 is consensus, can't put gap characters is seq1
+				if self.consensus != 2: # If seq2 is consensus, can't put gap characters is seq1
 					# Cost for gapping left (over sequence 1)
 					left, lefti, leftj = self.calculate_gap(i,
 													j,
@@ -226,7 +238,7 @@ class NeedlemanWunsch():
 													self.leftMat,
 													self.TADict1,
 													1)
-				if not self.consensus == 1: # If seq1 is consensus, can't put gap characters is seq2
+				if self.consensus != 1: # If seq1 is consensus, can't put gap characters is seq2
 					# Cost for gapping up (over sequence 2)
 					up, upj, upi = self.calculate_gap(j,
 												i,
@@ -247,17 +259,20 @@ class NeedlemanWunsch():
 					self.backPos[i,j] = i-1,j-1
 					#out('MATCH')
 				elif left is not None and (up is None or left >= up):
-					# Gapping left is allows and produces the best score
+					# Gapping left is allowed and produces the best score
 					self.scoreMat.set_data(i,j, left)
 					self.directionMat.set_data(i,j, 1)
 					self.backPos[i,j] = lefti,leftj
 					#out('LEFT')
-				else:
-					# Gapping up is allows and produces the best score
+				elif up is not None:
+					# Gapping up is allowed and produces the best score
 					self.scoreMat.set_data(i,j, up)
 					self.directionMat.set_data(i,j, 2)
 					self.backPos[i,j] = upi,upj
 					#out('UP')
+				else:
+					# This location is unreachable due to presence of a pre-consensus sequence
+					self.scoreMat.set_data(i,j,None)
 		i, j = l1, l2 # for trace-back process 
 		keepGapping = 0
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
