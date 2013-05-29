@@ -227,7 +227,7 @@ class TreeIndexLogic():
         
     def get(self):
         if (self.char1 == 'A' and self.char2 == 'C') or (self.char2 == 'A' and self.char1 == 'C'):
-            return 'C'
+            return 'A'
         if (self.char1 == 'A' and self.char2 == '-') or (self.char2 == 'A' and self.char1 == '-'):
             return 'A'
         if (self.char1 == 'T' and self.char2 == '-') or (self.char2 == 'T' and self.char1 == '-'):
