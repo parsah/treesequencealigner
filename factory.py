@@ -207,11 +207,17 @@ class NeedlemanWunsch():
 		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
 		self.scoreMat.set_data(0,0, 0)
 		for i in range(1, l1 + 1): # set each row by the desired gap
-			self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
+			if self.consensus != 2:
+				self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
+			else:
+				self.scoreMat.set_data(i,0, None)
 			self.leftMat.score.set_data(i,0, None) #[0] = None
 			self.upMat.score.set_data(i,0, None)
 		for j in range(1, l2 + 1): # set each column by the desired gap
-			self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
+			if self.consensus != 1:
+				self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
+			else:
+				self.scoreMat.set_data(0,j, None)
 			self.leftMat.score.set_data(0,j, None) #[0] = None
 			self.upMat.score.set_data(0,j, None)
 		for i in range(1, l1+1): # per base-pair in sequence 1 ...
