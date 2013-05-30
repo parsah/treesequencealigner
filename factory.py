@@ -174,7 +174,7 @@ class NeedlemanWunsch():
 					gapScoreACFinish = m.get_data(gapPosi,j-1) + gapCostMajor + ACScore + self.costs['gapopen']
 
 				# Determine which gap produces a higher overall score, and use that for this position's gap score
-				if gapScoreACFinish is not None and gapScoreACFinish >= gapScoreGapFinish:
+				if gapScoreACFinish is not None and (gapScoreGapFinish is None or gapScoreACFinish >= gapScoreGapFinish):
 					gapScore = gapScoreACFinish
 					gapPosj = j-1
 					isExtend = False
