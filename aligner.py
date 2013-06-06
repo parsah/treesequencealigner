@@ -348,9 +348,72 @@ class ConsensusFilterFactory():
             for col_num in range(len(self.alignments[row_num])):
                 if col_num == num:
                     a_column.append(self.alignments[row_num][col_num])
-        counts = dict(Counter(a_column))
-        return counts
-            
+        char_counts = dict(Counter(a_column))
+        # set the counts as a fraction so it can be easily computed in relation
+        # to the threshold.
+        for char in char_counts:
+            frac = char_counts[char]/float(self.height)
+            char_counts[char] = round(frac, 2)
+        return char_counts
+    
+    def build_consensus(self):
+        ''' 
+        Iterates through each column, extracts respective values, counts its
+        abundance and determines the consensus character given various neural 
+        logic clauses. 
+        '''
+        # store consensus as list (initially) so characters can be easily
+        # placed easily; akin to array indexing.
+        consensus = ['-'] * self.width 
+        for col_num in range(self.width): # process each column
+            char_counts = self.enumerate_column(col_num)
+            ############################################################
+            #### Logic for when only 1 base is exclusive to a column ###
+            ############################################################
+            if len(char_counts) == 1:
+                chars = list(char_counts.keys()) # get the bases without counts
+                char = chars[0] # get the key for that character
+                consensus[col_num] = char # assign consensus character
+                continue
+            ############################################################
+            #### Logic for when only 1 base and dashes are in column ###
+            ############################################################
+            if len(char_counts) == 2 and '-' in char_counts:
+                # since we do not know what the known base is (either A, T, C),
+                # subtract 1 from the dash count and use that to guide whether
+                # the known base will become part of the consensus.
+                count_base = 1 - char_counts['-']
+                if count_base >= self.threshold:
+                    del char_counts['-'] # delete dash; remaining is character
+                    char = list(char_counts.keys())[0]
+                    consensus[col_num] = char # assign consensus character
+                    continue
+            #####################################################
+            #### Logic for when 2 bases are found in a column ###
+            #####################################################
+            if 'C' in char_counts and 'T' in char_counts:
+                # we get the counts for both C and T, and contrast their
+                # respective scores; assigning to the consensus whichever is
+                # not only the largest score but also exceed the threshold.
+                count_C, count_T = char_counts['C'], char_counts['T']
+                if count_C >= count_T and count_C >= self.threshold:
+                    consensus[col_num] = 'C' # select C over T
+                elif count_T >= count_C and count_T >= self.threshold:
+                    consensus[col_num] = 'T' # select T over C
+            # choosing the better of A or C
+            if 'C' in char_counts and 'A' in char_counts:
+                # we get the counts for both C and A, and contrast their
+                # respective scores; assigning to the consensus whichever is
+                # not only the largest score but also exceed the threshold.
+                count_C, count_A = char_counts['C'], char_counts['A']
+                if count_C >= count_A and count_C >= self.threshold:
+                    consensus[col_num] = 'C' # select C over A
+                elif count_A >= count_C and count_A >= self.threshold:
+                    consensus[col_num] = 'A' # select A over C
+        
+        print()
+        print('consensus:')
+        print(''.join(consensus))
 
 
 class PairwiseDriver():
@@ -523,7 +586,8 @@ if __name__ == '__main__':
             # map queries back onto consensus and build a filtered consensus
             alignments = driver.align()
             consensus_fact = ConsensusFilterFactory(alignments, args['t'])
-            consensus_fact.enumerate_column(12)
+            consensus_fact.build_consensus()
+#             consensus_fact.enumerate_column(12)
 
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
