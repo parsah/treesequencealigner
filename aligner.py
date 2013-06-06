@@ -7,6 +7,7 @@ import factory
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from model import NeuriteSequence
+from collections import Counter
 
 # Validates user-provided command-line arguments
 class ArgumentValidator():
@@ -78,7 +79,7 @@ class CommandLineParser():
         param_reqd.add_argument('-f', metavar='FILE', required=True,
                     help='Input fasta file [na]')
         param_reqd.add_argument('--mode', metavar='MODE', required=True,
-                    help='Either pairwise (local) or multiple-sequence (msa) [req]')
+                    help='Either pairwise (local) or multiple-sequence (msa) [na]')
         
         # Specify optional arguments
         param_opts.add_argument('-f2', metavar='FILE', required=False, default=None,
@@ -98,7 +99,9 @@ class CommandLineParser():
         param_opts.add_argument('-o', metavar='FILE', default='scores.tab', 
                     help='File to write/append output [scores.tab]')
         param_opts.add_argument('-a', metavar='FILE', default='', 
-                    help='File to write/append alignments [none]')
+                    help='File to write/append alignments [na]')
+        param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
+                    help='Consensus threshold [0.7]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
         param_opts.add_argument('--forceQuery', action='store_const', const=True, default=False)
@@ -235,7 +238,7 @@ class TreeIndexLogic():
         if (self.char1 == 'C' and self.char2 == '-') or (self.char2 == 'C' and self.char1 == '-'):
             return 'C'
 
-class ConsensusAlignmentFactory():
+class TreeLogicFactory():
     '''
     Parses and processes the consensus string to ultimately yield a single
     string which encapsulate the pairwise alignment.
@@ -283,7 +286,7 @@ class MultipleSequenceDriver():
         nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
-        consensus = ConsensusAlignmentFactory(str1=first_align, 
+        consensus = TreeLogicFactory(str1=first_align, 
                                        str2=second_align).get_alignment()
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(self.queries)):
@@ -292,7 +295,7 @@ class MultipleSequenceDriver():
                                          costs=self.costs, submat=self.submat, 
                                          nodeTypes=factory.default_nodetypes())
             align_sA, align_sB = nw.prettify()[1]
-            consensus = ConsensusAlignmentFactory(str1=align_sA, 
+            consensus = TreeLogicFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
             self.preconsensus = consensus # of type NeuriteSequence.
 
@@ -318,7 +321,9 @@ class MultipleSequenceDriver():
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
             align_sA, align_sB = nw.prettify()[1]
+            alignments.append(list(align_sA))
             print(align_sA)
+        return alignments # return the matrix of all alignments
 
 class ConsensusFilterFactory():
     ''' 
@@ -326,6 +331,27 @@ class ConsensusFilterFactory():
     the pre-consensus are produced. Each alignment must then be parsed given
     neural logic rules, enabling derivation of a sound consensus sequence.
     '''
+    
+    def __init__(self, alignments, threshold):
+        self.alignments = alignments # matrix representing alignments
+        self.threshold = threshold # consensus threshold
+        self.height = len(alignments) # number of entries comprising alignment
+        self.width = len(alignments[0]) # all alignments are the same length
+        
+    def enumerate_column(self, num):
+        '''
+        Parses a specific column and counts the number of times a specific
+        value is found in that respective column.
+        '''
+        a_column = [] # stores values for a single column
+        for row_num in range(len(self.alignments)):
+            for col_num in range(len(self.alignments[row_num])):
+                if col_num == num:
+                    a_column.append(self.alignments[row_num][col_num])
+        counts = dict(Counter(a_column))
+        return counts
+            
+
 
 class PairwiseDriver():
     '''
@@ -495,10 +521,9 @@ if __name__ == '__main__':
             driver = MultipleSequenceDriver(queries, input_state)
             driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus
-            driver.align()
-            
-#             f = ConsensusFilterFactory(queries, aln_string, input_state, 0.7)
-#             f.initialize() # perform consensus filtering given the threshold.
+            alignments = driver.align()
+            consensus_fact = ConsensusFilterFactory(alignments, args['t'])
+            consensus_fact.enumerate_column(12)
 
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
