@@ -267,8 +267,14 @@ class MultipleSequenceDriver():
         self.queries = queries
         self.costs = input_state.get_penalties() # set costs to factory
         self.submat = input_state.get_submatrix() # set submatrix to factory
+        self.preconsensus = None # initially, no pre-consensus exists
 
-    def align(self):
+    def build_preconsensus(self):
+        ''' 
+        Takes the first 2 sequences, aligns them and renders the pairwise
+        alignment a pre-consensus. Every sequence thereof is then subsequently
+        pairwise-aligned to this pre-consensus.
+        '''
         out('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
         s0 = self.queries[0]
@@ -288,39 +294,38 @@ class MultipleSequenceDriver():
             align_sA, align_sB = nw.prettify()[1]
             consensus = ConsensusAlignmentFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
-        return consensus # consensus sequence is of type NeuriteSequence.
+            self.preconsensus = consensus # of type NeuriteSequence.
+
+    def align(self):
+        ''' 
+        A pre-consensus alignment is a manifestation of pairwise alignments
+        between sequence pairs. In other words, sequence (i) and (i+1) are
+        aligned and the resultant alignment (pre-consensus) is saved. Next,
+        sequence (i+2) is aligned against this pre-consensus and the resultant
+        alignment updates the pre-consensus. This logic is repeated for all
+        queries. This function re-aligns the input queries back onto the
+        pre-consensus so that the actual consensus sequence can be derived.
+        '''
+        if not self.preconsensus:
+            raise IOError('Pre-consensus alignment required.')
+        alignments = [] # references alignments against the pre-consensus
+        for curr_seq in self.queries:
+            # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
+            nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
+                                    costs=self.costs, submat=self.submat, 
+                                    nodeTypes=factory.default_nodetypes(),consensus=2)
+            # sequence sA is the query alignment while sB is the pre-consensus.
+            # we only need sA because sB does not change; all sequences are
+            # mapped to this and therefore the resultant alignment is desired.
+            align_sA, align_sB = nw.prettify()[1]
+            print(align_sA)
 
 class ConsensusFilterFactory():
     ''' 
-    Given a set of user-input sequences and its corresponding consensus
-    sequence, this class aims to map each sequence back to its consensus and
-    ultimately build a filtered consensus string. This filtered string ensures
-    that highly-conserved regions are kept but lesser-conserved regions are
-    replaced with a dash (-).
+    When multiple sequence alignment is complete, alignments per query against
+    the pre-consensus are produced. Each alignment must then be parsed given
+    neural logic rules, enabling derivation of a sound consensus sequence.
     '''
-    def __init__(self, queries, consensus, input_state, thres):
-        self.consensus = consensus
-        self.threshold = thres
-        self.queries = queries
-        self.costs = input_state.get_penalties() # set costs to factory
-        self.submat = input_state.get_submatrix() # set submatrix to factory
-        
-    def initialize(self):
-        print('unfiltered consensus:', self.consensus)
-        for curr_seq in self.queries:
-            print(curr_seq)
-            # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
-            nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.consensus, 
-                                    costs=self.costs, submat=self.submat, 
-                                    nodeTypes=factory.default_nodetypes(),consensus=2)
-            first_align, second_align = nw.prettify()[1]
-            align_sA, align_sB = nw.prettify()[1]
-            print(align_sA)
-            print(align_sB)
-            print('\n')
-#             consensus = ConsensusAlignmentFactory(str1=align_sA, 
-#                                        str2=align_sB).get_alignment()
-        
 
 class PairwiseDriver():
     '''
@@ -488,10 +493,12 @@ if __name__ == '__main__':
             driver.start() # start only pairwise alignment
         else: # else, start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
-            aln_string = driver.align()
+            driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus
-            f = ConsensusFilterFactory(queries, aln_string, input_state, 0.7)
-            f.initialize() # perform consensus filtering given the threshold.
+            driver.align()
+            
+#             f = ConsensusFilterFactory(queries, aln_string, input_state, 0.7)
+#             f.initialize() # perform consensus filtering given the threshold.
 
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
