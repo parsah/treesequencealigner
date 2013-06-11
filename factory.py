@@ -298,7 +298,7 @@ class NeedlemanWunsch():
 						self.align1 += self.seq1.seq[i-1]
 						self.align2 += '-'
 						i -= 1
-					if prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
+					if keepGapping != 1 and prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
 						self.align1 += self.seq1.seq[i-1]
 						self.align2 += self.seq2.seq[j-1]
 						i -= 1
@@ -327,7 +327,7 @@ class NeedlemanWunsch():
 						self.align1 += '-'
 						self.align2 += self.seq2.seq[j-1]
 						j -= 1
-					if previ < i:
+					if keepGapping != 2 and previ < i:
 						self.align1 += self.seq1.seq[i-1]
 						self.align2 += self.seq2.seq[j-1]
 						i -= 1
