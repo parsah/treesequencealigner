@@ -98,7 +98,7 @@ class CommandLineParser():
                     help='Number of worker processes [2]')
         param_opts.add_argument('-o', metavar='FILE', default='scores.tab', 
                     help='File to write/append output [scores.tab]')
-        param_opts.add_argument('-a', metavar='FILE', default='', 
+        param_opts.add_argument('-a', metavar='FILE', default=None, 
                     help='File to write/append alignments [na]')
         param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
@@ -121,6 +121,7 @@ class InputWrapperState():
         self.fname = args['f'] # input filename
         self.fname2 = args['f2'] # input filename
         self.score_type = args['s']
+        self.alignment_file = args['a']
 
     # Get arguments
     def get_args(self):
@@ -271,6 +272,7 @@ class MultipleSequenceDriver():
         self.costs = input_state.get_penalties() # set costs to factory
         self.submat = input_state.get_submatrix() # set submatrix to factory
         self.preconsensus = None # initially, no pre-consensus exists
+        self.alignment_file = input_state.alignment_file
 
     def build_preconsensus(self):
         ''' 
@@ -311,7 +313,11 @@ class MultipleSequenceDriver():
         '''
         if not self.preconsensus:
             raise IOError('Pre-consensus alignment required.')
+        if self.alignment_file:
+            align_handle = open(self.alignment_file, 'w')
+            
         alignments = [] # references alignments against the pre-consensus
+        name_lengths = []
         for curr_seq in self.queries:
             # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
             nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
@@ -323,6 +329,15 @@ class MultipleSequenceDriver():
             align_sA, align_sB = nw.prettify()[1]
             alignments.append(list(align_sA))
             print(align_sA)
+            name_lengths.append(len(curr_seq.name))
+            
+        # Write alignments to file
+        if self.alignment_file:
+            total_space = max(name_lengths)+1
+            for curr_seq in self.queries:
+                align_handle.write(curr_seq.seq+(' '*(total_space-len(curr_seq.name)))+align_sA+'\n') # write header
+            align_handle.close()
+            
         return alignments # return the matrix of all alignments
 
 class ConsensusFilterFactory():
