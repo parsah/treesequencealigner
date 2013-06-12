@@ -284,16 +284,18 @@ class NeedlemanWunsch():
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
 			# if score is a gap in sequence 2 (direction is 1), only walk back on i
 			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
-				# Check whether the choice of gapping left requires the leftward position to also gap left
-				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
-					keepGapping = 1
-				else:
-					keepGapping = 0
-					
 				# If the node being gapped is a T-node, appropriately gap the entire subtree
 				if self.nodeTypes[self.seq1.seq[i-1]] == 'T':
-					previ = self.backPos[i,j][0]
-					prevj = self.backPos[i,j][1]
+					# Check whether the choice of gapping left requires the leftward position to also gap left
+					if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
+						keepGapping = 1
+						previ = self.TADict1[i-1]
+						prevj = j
+					else:
+						keepGapping = 0
+						previ = self.backPos[i,j][0]
+						prevj = self.backPos[i,j][1]
+						
 					while i > previ+1: # Walk back with gaps until the one position greater than the final position
 						self.align1 += self.seq1.seq[i-1]
 						self.align2 += '-'
@@ -314,15 +316,17 @@ class NeedlemanWunsch():
 					i -= 1
 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
 			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
-				# Check whether the choice of gapping up requires the leftward position to also gap up
-				if self.upMat.extend_flag.get_data(i,j) == True:
-					keepGapping = 2
-				else:
-					keepGapping = 0
-					
 				if self.nodeTypes[self.seq2.seq[j-1]] == 'T':
-					previ = self.backPos[i,j][0]
-					prevj = self.backPos[i,j][1]
+					# Check whether the choice of gapping up requires the leftward position to also gap up
+					if self.upMat.extend_flag.get_data(i,j) == True:
+						keepGapping = 2
+						previ = i
+						prevj = self.TADict2[j-1]
+					else:
+						keepGapping = 0
+						previ = self.backPos[i,j][0]
+						prevj = self.backPos[i,j][1]
+						
 					while j > prevj+1:
 						self.align1 += '-'
 						self.align2 += self.seq2.seq[j-1]
