@@ -4,10 +4,12 @@ import concurrent.futures
 import sys
 import os
 import factory
+import math
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from model import NeuriteSequence
 from collections import Counter
+from random import shuffle
 
 # Validates user-provided command-line arguments
 class ArgumentValidator():
@@ -35,7 +37,7 @@ class ArgumentValidator():
     # Checks user-provided arguments are valid
     def check_args(self):
         return all([self.test_num_workers(), self.test_mutual_matrices(),
-                self.test_valid_matrix()])
+                self.test_valid_matrix(),self.test_threshold_type()])
 
     # Test either a custom matrix or in-built matrix is selected
     def test_mutual_matrices(self):
@@ -60,6 +62,12 @@ class ArgumentValidator():
             return True
         else:
             raise IOError('>= 1 worker processes must be provided')
+
+    def test_threshold_type(self):
+		if self.args['thresholdType'] != 'percent' and self.args['thresholdType'] != 'sqrt':
+			raise IOError("thresholdType must be \'percent\' or \'sqrt\'")
+		else:
+			return True
 
 # Helper-class to parse input arguments
 class CommandLineParser():
@@ -102,8 +110,11 @@ class CommandLineParser():
                     help='File to write/append alignments [na]')
         param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
+    	param_opts.add_argument('--thresholdType', metavar='STR', default='percent', 
+					help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
+    	param_opts.add_argument('--randomOrder', action='store_const', const=True, default=False)
         param_opts.add_argument('--forceQuery', action='store_const', const=True, default=False)
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
@@ -219,6 +230,16 @@ def parse_output(fname):
                     alreadyDone.append(sequenceName)
     return alreadyDone
 
+# Function to parse multiple alignment file for use in consensus filtering
+def parse_alignments(fname):
+    alignments = []
+	if os.path.isfile(fname):
+		for line in open(fname):
+			parts = line.split()
+			if parts[0] != 'Preconsensus':
+				alignments.append(parts[1])
+	return alignments
+
 class TreeIndexLogic():
     ''' 
     A class which captures tree-specific logic given two characters.
@@ -273,6 +294,7 @@ class MultipleSequenceDriver():
         self.submat = input_state.get_submatrix() # set submatrix to factory
         self.preconsensus = None # initially, no pre-consensus exists
         self.alignment_file = input_state.alignment_file
+    	self.random_order = input_state.get_args()['randomOrder']
 
     def build_preconsensus(self):
         ''' 
@@ -280,10 +302,16 @@ class MultipleSequenceDriver():
         alignment a pre-consensus. Every sequence thereof is then subsequently
         pairwise-aligned to this pre-consensus.
         '''
+        
+        queries = self.queries
+		if self.random_order:
+			# Randomize the order of the sequences
+			shuffle(queries)
+
         out('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
-        s0 = self.queries[0]
-        s1 = self.queries[1]
+        s0 = queries[0]
+        s1 = queries[1]
         # pass them both into the tree--based Needleman--Wunsch algorithm.
         nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
         first_align, second_align = nw.prettify()[1]
@@ -291,8 +319,8 @@ class MultipleSequenceDriver():
         consensus = TreeLogicFactory(str1=first_align, 
                                        str2=second_align).get_alignment()
         # since the first two sequences have been aligned, focus on all others.
-        for i in range(2, len(self.queries)):
-            curr_seq = self.queries[i]
+        for i in range(2, len(queries)):
+            curr_seq = queries[i]
             nw = factory.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
                                          nodeTypes=factory.default_nodetypes())
@@ -332,11 +360,12 @@ class MultipleSequenceDriver():
             name_lengths.append(len(curr_seq.name))
             
         # Write alignments to file
-        if self.alignment_file:
-            total_space = max(name_lengths)+1
-            for curr_seq in self.queries:
-                align_handle.write(curr_seq.seq+(' '*(total_space-len(curr_seq.name)))+align_sA+'\n') # write header
-            align_handle.close()
+    	if self.alignment_file:
+			total_space = max(12,max(name_lengths))+1
+			align_handle.write(('Preconsensus'+' '*(total_space-12))+self.preconsensus.seq+'\n') # write header
+			for index,curr_seq in enumerate(self.queries):
+				align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(alignments[index]))+'\n') # write header
+			align_handle.close()
             
         return alignments # return the matrix of all alignments
 
@@ -347,9 +376,12 @@ class ConsensusFilterFactory():
     neural logic rules, enabling derivation of a sound consensus sequence.
     '''
     
-    def __init__(self, alignments, threshold):
+    def __init__(self, alignments, threshold, thresholdType):
         self.alignments = alignments # matrix representing alignments
-        self.threshold = threshold # consensus threshold
+    	if thresholdType == 'sqrt':
+			self.threshold = threshold*math.sqrt(len(alignments)) # consensus threshold
+		else: # Default to percent
+			self.threshold = threshold*len(alignments) # consensus threshold
         self.height = len(alignments) # number of entries comprising alignment
         self.width = len(alignments[0]) # all alignments are the same length
         
@@ -600,7 +632,7 @@ if __name__ == '__main__':
             driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus
             alignments = driver.align()
-            consensus_fact = ConsensusFilterFactory(alignments, args['t'])
+            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['thresholdType'])
             consensus_fact.build_consensus()
 #             consensus_fact.enumerate_column(12)
 
