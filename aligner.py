@@ -64,10 +64,10 @@ class ArgumentValidator():
             raise IOError('>= 1 worker processes must be provided')
 
     def test_threshold_type(self):
-		if self.args['thresholdType'] != 'percent' and self.args['thresholdType'] != 'sqrt':
-			raise IOError("thresholdType must be \'percent\' or \'sqrt\'")
-		else:
-			return True
+        if self.args['thresholdType'] != 'percent' and self.args['thresholdType'] != 'sqrt':
+            raise IOError("thresholdType must be \'percent\' or \'sqrt\'")
+        else:
+            return True
 
 # Helper-class to parse input arguments
 class CommandLineParser():
@@ -111,10 +111,10 @@ class CommandLineParser():
         param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
     	param_opts.add_argument('--thresholdType', metavar='STR', default='percent', 
-					help='Threshold type [percent]')
+                    help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
-    	param_opts.add_argument('--randomOrder', action='store_const', const=True, default=False)
+        param_opts.add_argument('--randomOrder', action='store_const', const=True, default=False)
         param_opts.add_argument('--forceQuery', action='store_const', const=True, default=False)
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
@@ -233,12 +233,12 @@ def parse_output(fname):
 # Function to parse multiple alignment file for use in consensus filtering
 def parse_alignments(fname):
     alignments = []
-	if os.path.isfile(fname):
-		for line in open(fname):
-			parts = line.split()
-			if parts[0] != 'Preconsensus':
-				alignments.append(parts[1])
-	return alignments
+    if os.path.isfile(fname):
+        for line in open(fname):
+            parts = line.split()
+            if parts[0] != 'Preconsensus':
+                alignments.append(parts[1])
+    return alignments
 
 class TreeIndexLogic():
     ''' 
@@ -294,7 +294,7 @@ class MultipleSequenceDriver():
         self.submat = input_state.get_submatrix() # set submatrix to factory
         self.preconsensus = None # initially, no pre-consensus exists
         self.alignment_file = input_state.alignment_file
-    	self.random_order = input_state.get_args()['randomOrder']
+        self.random_order = input_state.get_args()['randomOrder']
 
     def build_preconsensus(self):
         ''' 
@@ -304,9 +304,9 @@ class MultipleSequenceDriver():
         '''
         
         queries = self.queries
-		if self.random_order:
-			# Randomize the order of the sequences
-			shuffle(queries)
+        if self.random_order:
+            # Randomize the order of the sequences
+            shuffle(queries)
 
         out('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
@@ -360,12 +360,12 @@ class MultipleSequenceDriver():
             name_lengths.append(len(curr_seq.name))
             
         # Write alignments to file
-    	if self.alignment_file:
-			total_space = max(12,max(name_lengths))+1
-			align_handle.write(('Preconsensus'+' '*(total_space-12))+self.preconsensus.seq+'\n') # write header
-			for index,curr_seq in enumerate(self.queries):
-				align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(alignments[index]))+'\n') # write header
-			align_handle.close()
+        if self.alignment_file:
+            total_space = max(12,max(name_lengths))+1
+            align_handle.write(('Preconsensus'+' '*(total_space-12))+self.preconsensus.seq+'\n') # write header
+            for index,curr_seq in enumerate(self.queries):
+                align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(alignments[index]))+'\n') # write header
+            align_handle.close()
             
         return alignments # return the matrix of all alignments
 
@@ -378,10 +378,10 @@ class ConsensusFilterFactory():
     
     def __init__(self, alignments, threshold_ratio, threshold_type):
         self.alignments = alignments # matrix representing alignments
-    	if threshold_type == 'sqrt':
-		self.threshold_count = threshold_ratio*math.sqrt(len(alignments)) # consensus threshold
-	else: # Default to percent
-		self.threshold_count = threshold_ratio*len(alignments) # consensus threshold
+        if threshold_type == 'sqrt':
+            self.threshold_count = threshold_ratio*math.sqrt(len(alignments)) # consensus threshold
+        else: # Default to percent
+            self.threshold_count = threshold_ratio*len(alignments) # consensus threshold
         self.height = len(alignments) # number of entries comprising alignment
         self.width = len(alignments[0]) # all alignments are the same length
         
@@ -453,10 +453,10 @@ class ConsensusFilterFactory():
                 # we get the counts for both C and A, and contrast their
                 # respective scores; assigning to the consensus whichever is
                 # not only the largest score but also exceed the threshold.
-		if char_counts['A'] >= self.threshold_count:
-			consensus[col_num] = 'A' # There are enough A's
-		elif char_counts['A'] + char_counts['C'] >= self.threshold_count:
-			consensus[col_num] = 'C' # There aren't enough A's, but there are enough characters
+                if char_counts['A'] >= self.threshold_count:
+                    consensus[col_num] = 'A' # There are enough A's
+                elif char_counts['A'] + char_counts['C'] >= self.threshold_count:
+                    consensus[col_num] = 'C' # There aren't enough A's, but there are enough characters
         
         print()
         print('consensus:')
@@ -627,7 +627,7 @@ if __name__ == '__main__':
         if args['mode'] == 'local':
             driver = PairwiseDriver(targets, queries, input_state)
             driver.start() # start only pairwise alignment
-	elif args['mode'] == 'consensus' and args['a'] is not None:
+        elif args['mode'] == 'consensus' and args['a'] is not None:
             alignments = parse_alignments(args['a'])
             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
             consensus_fact.build_consensus()
