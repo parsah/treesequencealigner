@@ -87,7 +87,7 @@ class CommandLineParser():
         param_reqd.add_argument('-f', metavar='FILE', required=True,
                     help='Input fasta file [na]')
         param_reqd.add_argument('--mode', metavar='MODE', required=True,
-                    help='Either pairwise (local) or multiple-sequence (msa) [na]')
+                    help='Either pairwise (local), multiple-sequence (msa), or msa consensus only (consensus) [na]')
         
         # Specify optional arguments
         param_opts.add_argument('-f2', metavar='FILE', required=False, default=None,
@@ -627,6 +627,10 @@ if __name__ == '__main__':
         if args['mode'] == 'local':
             driver = PairwiseDriver(targets, queries, input_state)
             driver.start() # start only pairwise alignment
+	elif args['mode'] == 'consensus' and args['a'] is not None:
+            alignments = parse_alignments(args['a'])
+            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
+            consensus_fact.build_consensus()
         else: # else, start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
             driver.build_preconsensus()
