@@ -376,12 +376,12 @@ class ConsensusFilterFactory():
     neural logic rules, enabling derivation of a sound consensus sequence.
     '''
     
-    def __init__(self, alignments, threshold, thresholdType):
+    def __init__(self, alignments, threshold_ratio, threshold_type):
         self.alignments = alignments # matrix representing alignments
-    	if thresholdType == 'sqrt':
-			self.threshold = threshold*math.sqrt(len(alignments)) # consensus threshold
-		else: # Default to percent
-			self.threshold = threshold*len(alignments) # consensus threshold
+    	if threshold_type == 'sqrt':
+		self.threshold_count = threshold_ratio*math.sqrt(len(alignments)) # consensus threshold
+	else: # Default to percent
+		self.threshold_count = threshold_ratio*len(alignments) # consensus threshold
         self.height = len(alignments) # number of entries comprising alignment
         self.width = len(alignments[0]) # all alignments are the same length
         
@@ -397,10 +397,10 @@ class ConsensusFilterFactory():
                     a_column.append(self.alignments[row_num][col_num])
         char_counts = dict(Counter(a_column))
         # set the counts as a fraction so it can be easily computed in relation
-        # to the threshold.
-        for char in char_counts:
-            frac = char_counts[char]/float(self.height)
-            char_counts[char] = round(frac, 2)
+        # to the threshold. EDIT: using count threshold instead to enable other types of thresholding
+        #for char in char_counts:
+        #    frac = char_counts[char]/float(self.height)
+        #    char_counts[char] = round(frac, 2)
         return char_counts
     
     def build_consensus(self):
@@ -429,8 +429,8 @@ class ConsensusFilterFactory():
                 # since we do not know what the known base is (either A, T, C),
                 # subtract 1 from the dash count and use that to guide whether
                 # the known base will become part of the consensus.
-                count_base = 1 - char_counts['-']
-                if count_base >= self.threshold:
+                count_base = self.height - char_counts['-']
+                if count_base >= self.threshold_count:
                     del char_counts['-'] # delete dash; remaining is character
                     char = list(char_counts.keys())[0]
                     consensus[col_num] = char # assign consensus character
@@ -438,25 +438,25 @@ class ConsensusFilterFactory():
             #####################################################
             #### Logic for when 2 bases are found in a column ###
             #####################################################
-            if 'C' in char_counts and 'T' in char_counts:
-                # we get the counts for both C and T, and contrast their
-                # respective scores; assigning to the consensus whichever is
-                # not only the largest score but also exceed the threshold.
-                count_C, count_T = char_counts['C'], char_counts['T']
-                if count_C >= count_T and count_C >= self.threshold:
-                    consensus[col_num] = 'C' # select C over T
-                elif count_T >= count_C and count_T >= self.threshold:
-                    consensus[col_num] = 'T' # select T over C
+            # This case should never happen. We could put in an error condition here...
+            #if 'C' in char_counts and 'T' in char_counts:
+            #    # we get the counts for both C and T, and contrast their
+            #    # respective scores; assigning to the consensus whichever is
+            #    # not only the largest score but also exceed the threshold.
+            #    count_C, count_T = char_counts['C'], char_counts['T']
+            #    if count_C >= count_T and count_C >= self.threshold:
+            #        consensus[col_num] = 'C' # select C over T
+            #    elif count_T >= count_C and count_T >= self.threshold:
+            #        consensus[col_num] = 'T' # select T over C
             # choosing the better of A or C
             if 'C' in char_counts and 'A' in char_counts:
                 # we get the counts for both C and A, and contrast their
                 # respective scores; assigning to the consensus whichever is
                 # not only the largest score but also exceed the threshold.
-                count_C, count_A = char_counts['C'], char_counts['A']
-                if count_C >= count_A and count_C >= self.threshold:
-                    consensus[col_num] = 'C' # select C over A
-                elif count_A >= count_C and count_A >= self.threshold:
-                    consensus[col_num] = 'A' # select A over C
+		if char_counts['A'] >= self.threshold_count:
+			consensus[col_num] = 'A' # There are enough A's
+		elif char_counts['A'] + char_counts['C'] >= self.threshold_count:
+			consensus[col_num] = 'C' # There aren't enough A's, but there are enough characters
         
         print()
         print('consensus:')
