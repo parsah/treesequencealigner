@@ -294,12 +294,6 @@ class NeedlemanWunsch():
 						previ = self.backPos[i,j][0]
 						prevj = self.backPos[i,j][1]
 
-					# Check whether the choice of gapping left requires the leftward position to also gap left
-					if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
-						keepGapping = 1
-					else:
-						keepGapping = 0
-						
 					while i > previ+1: # Walk back with gaps until the one position greater than the final position
 						self.align1 += self.seq1.seq[i-1]
 						self.align2 += '-'
@@ -318,6 +312,13 @@ class NeedlemanWunsch():
 					self.align1 += self.seq1.seq[i-1]
 					self.align2 += '-'
 					i -= 1
+					
+				# Check whether the choice of gapping left requires the leftward position to also gap left
+				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
+					keepGapping = 1
+				else:
+					keepGapping = 0
+				
 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
 			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
 				if self.nodeTypes[self.seq2.seq[j-1]] == 'T':
@@ -328,12 +329,6 @@ class NeedlemanWunsch():
 					else:
 						previ = self.backPos[i,j][0]
 						prevj = self.backPos[i,j][1]
-
-					# Check whether the choice of gapping up requires the leftward position to also gap up
-					if self.upMat.extend_flag.get_data(i,j) == True:
-						keepGapping = 2
-					else:
-						keepGapping = 0
 						
 					while j > prevj+1:
 						self.align1 += '-'
@@ -352,6 +347,13 @@ class NeedlemanWunsch():
 					self.align1 += '-'
 					self.align2 += self.seq2.seq[j-1]
 					j -= 1
+					
+				# Check whether the choice of gapping up requires the leftward position to also gap up
+				if self.upMat.extend_flag.get_data(i,j) == True:
+					keepGapping = 2
+				else:
+					keepGapping = 0
+
 			# if the score is a match, walk-back one index in both i and j
 			elif self.directionMat.get_data(i,j) == 0:
 				keepGapping = 0
