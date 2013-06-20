@@ -110,7 +110,7 @@ class CommandLineParser():
                     help='File to write/append alignments [na]')
         param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
-    	param_opts.add_argument('--thresholdType', metavar='STR', default='percent', 
+        param_opts.add_argument('--thresholdType', metavar='STR', default='percent', 
                     help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
