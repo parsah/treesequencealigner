@@ -64,8 +64,8 @@ class ArgumentValidator():
             raise IOError('>= 1 worker processes must be provided')
 
     def test_threshold_type(self):
-        if self.args['thresholdType'] != 'percent' and self.args['thresholdType'] != 'sqrt':
-            raise IOError("thresholdType must be \'percent\' or \'sqrt\'")
+        if self.args['threshold_type'] != 'percent' and self.args['threshold_type'] != 'sqrt':
+            raise IOError("threshold_type must be \'percent\' or \'sqrt\'")
         else:
             return True
 
@@ -110,7 +110,7 @@ class CommandLineParser():
                     help='File to write/append alignments [na]')
         param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
-        param_opts.add_argument('--thresholdType', metavar='STR', default='percent', 
+        param_opts.add_argument('--threshold_type', metavar='STR', default='percent', 
                     help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
@@ -636,7 +636,7 @@ if __name__ == '__main__':
             driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus
             alignments = driver.align()
-            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['thresholdType'])
+            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
             consensus_fact.build_consensus()
 #             consensus_fact.enumerate_column(12)
 
