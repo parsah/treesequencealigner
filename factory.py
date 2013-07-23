@@ -375,6 +375,390 @@ class NeedlemanWunsch():
 		self.align1 = self.align1[::-1]
 		self.align2 = self.align2[::-1]
 
+
+class LocalAlignment():
+	def __init__(self, s1, s2, align1, align2, score, start1=None, start2=None, end1=None, end2=None):
+		self.s1 = s1
+		self.s2 = s2
+		self.align1 = align1
+		self.align2 = align2
+		self.score = score
+		self.start1 = start1
+		self.start2 = start2
+		self.end1 = end1
+		self.end2 = end2
+		
+# Implementation of local alignment - Smith-Waterman
+class TreewiseSmithWaterman():
+	def __init__(self, s1, s2, costs, submat, nodeTypes):
+		self.seq1 = s1 # sequence 1
+		self.seq2 = s2 # sequence 2
+		self.costs = costs # dictionary of all costs (i.e. penalties)
+		self.submat = submat # substitution matrix
+		self.create_node_types(nodeTypes)
+		self.create_residue_specific_gapcost()
+		self.TADict1 = create_ta_dictionary(s1.seq, nodeTypes, submat, costs['gap'])
+		self.TADict2 = create_ta_dictionary(s2.seq, nodeTypes, submat, costs['gap'])
+		self.scoreMat = None # references score matrix
+		self.directionMat = None # references diag(0),left(1),up(2) matrix
+		self.leftMat = None # references diag(0),left(1),up(2) matrix
+		self.upMat = None # references diag(0),left(1),up(2) matrix
+		self.backPos = {} # the backtrace position from one position to its prior (contains integer pairs)
+		self._alignments = []
+ 		self.masked = None
+		self.min_score = None
+		self.curr_min_score = None
+		self._aligner()
+
+	def create_node_types(self,nodeTypes):
+		self.nodeTypes = {}
+		for nodeType in nodeTypes.keys():
+			for residue in nodeTypes[nodeType]:
+				self.nodeTypes[residue] = nodeType
+	
+	# Fills in all gap-residue pairs either with flipped order entry if it exists, else with the default gap cost
+	# Also fills in flipped residue-residue scores
+	def create_residue_specific_gapcost(self):
+		newToSubmat = {}
+		for pair in self.submat.keys():
+			if pair[0] == '-' and pair[1] == '-':
+				# do nothing, this is useless and shouldn't happen
+				pass
+			elif pair[0] == '-' or pair[1] == '-':
+				# Note that the given residue has an associated gap cost
+				if pair[0] == '-' and (pair[1],'-') not in self.submat.keys():
+					newToSubmat[pair[1],'-'] = self.submat[pair]
+				elif pair[1] == '-' and (pair[1],'-') not in self.submat.keys():
+					newToSubmat[pair[1],'-'] = self.submat[pair]
+			else:
+				# Fill the residueDict so none are missed
+				if (pair[0],'-') not in self.submat.keys() and ('-',pair[0]) not in self.submat.keys():
+					newToSubmat[pair[0],'-'] = self.costs['gap']
+					newToSubmat['-',pair[0]] = self.costs['gap']
+				if (pair[1],'-') not in self.submat.keys() and ('-',pair[1]) not in self.submat.keys():
+					newToSubmat[pair[1],'-'] = self.costs['gap']
+					newToSubmat['-',pair[1]] = self.costs['gap']
+				if (pair[1],pair[0]) not in self.submat.keys():
+					newToSubmat[pair[1],pair[0]] = self.submat[pair]
+		for pair in newToSubmat.keys():
+			self.submat[pair] = newToSubmat[pair]
+	
+	def determine_open_extend(self,i,j,m,directionM,dirScoreM,currentGapCost,gapDirection):
+		if m.get_data(i,j) is None:
+			return None,False
+		gapScore = m.get_data(i,j) + currentGapCost
+		# Add on the gap open cost if the prior position is not gapped in the same direction (gapping the same sequence)
+		if dirScoreM.score.get_data(i,j) is None:#[0]): # Previous position can't gap
+			gapScore += self.costs['gapopen']
+			scoreExtendPair = gapScore,False
+		elif directionM.get_data(i,j) is not gapDirection: # Previous position didn't choose gap
+			extendGapScore = dirScoreM.score.get_data(i,j) + currentGapCost
+			openGapScore = gapScore + self.costs['gapopen']
+			if openGapScore >= extendGapScore: # new gap is best, go with previous position's choice
+				scoreExtendPair = openGapScore,False
+			else: 
+				# continuation is best, override previous position choice; if current position is on path, previous position will gap
+				scoreExtendPair = extendGapScore,True
+		else: # Previous position did choose gap, so this is automatically a continuation
+			scoreExtendPair = gapScore,True
+		return scoreExtendPair
+		
+	# Calculates the gap cost in a given direction from a given position, which depends on the node type
+	def calculate_gap(self,i,j,seq1,seq2,m,directionM,dirScoreM,TADict,gapDirection):
+		isExtend = False
+		# CType: gap one
+		if self.nodeTypes[seq1[i-1]] == 'C':
+			# The prior position assuming a gap (index based on m)
+			gapPosi = i - 1
+			gapPosj = j
+			# Determine the appropriate gap score depending on whether this opens or extends a gap
+			gapScore,isExtend = self.determine_open_extend(gapPosi,
+														gapPosj,
+														m,
+														directionM,
+														dirScoreM,
+														get_gapcost(seq1[i-1],self.submat),
+														gapDirection)
+
+		# TType: gap until paired A
+		elif self.nodeTypes[seq1[i-1]] == 'T': 
+			# The prior position assuming a gap (index based on m)
+			gapPosi = TADict[i-1]
+			# Case where this is the last T; handle sentinal and get cost of front-gap
+			if TADict[i-1] is -1:
+				gapPosi = 0
+			gapCostMajor = TADict[str(i-1)] # Cost of the gap from the T-node up to the A-node
+			gapCostStart = get_gapcost(seq1[gapPosi],self.submat) # Cost of the A-node that starts the gap
+
+			# Calculate the total gap cost assuming the associated A is also gapped
+			gapScoreGapFinish,isExtend = self.determine_open_extend(gapPosi,
+																j,
+																m,
+																directionM,
+																dirScoreM,
+																gapCostMajor+gapCostStart,
+																gapDirection)
+
+			# If seq2 character is C-type, determine whether to match T-paired A and C, or to just gap the A
+			# This will not happen if this is the last T (TADict[i-1] is -1), as the whole sequence must be gapped
+			if self.nodeTypes[seq2[j-1]] == 'C' and TADict[i-1] is not -1:
+				# Calculate the total gap cost assuming the associated A-node matches a C-node
+				ACScore = get_score(seq1[gapPosi],seq2[j-1],self.submat)
+				if m.get_data(gapPosi,j-1) is None:
+					gapScoreACFinish = None
+				else:
+					gapScoreACFinish = m.get_data(gapPosi,j-1) + gapCostMajor + ACScore + self.costs['gapopen']
+
+				# Determine which gap produces a higher overall score, and use that for this position's gap score
+				if gapScoreACFinish is not None and (gapScoreGapFinish is None or gapScoreACFinish >= gapScoreGapFinish):
+					gapScore = gapScoreACFinish
+					gapPosj = j-1
+					isExtend = False
+				elif gapScoreGapFinish is not None:
+					gapScore = gapScoreGapFinish
+					gapPosj = j
+				else:
+					gapScore = None
+					gapPosj = j
+					isExtend = False
+			# If seq2 character is not a C, then use the total gap score assuming the A is also gapped
+			else:
+				gapScore = gapScoreGapFinish
+				gapPosj = j
+		else: # AType, no gapping allowed
+			gapScore = None # original was set to None
+			gapPosi = None
+			gapPosj = None 
+		dirScoreM.score.set_data(i,j, gapScore)
+		dirScoreM.extend_flag.set_data(i,j, isExtend)
+		return [gapScore, gapPosi, gapPosj]
+
+	# Execute alignment
+	def _aligner(self):
+		l1, l2 = len(self.seq1.seq), len(self.seq2.seq)	
+		self.scoreMat = Matrix(l1+1, l2+1) # create matrix for storing counts
+		self.directionMat = Matrix(l1+1, l2+1)
+		# Each position contains a 2-tuple of the respective gap score and True if the gap is a continuation, False if it is new
+		self.leftMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
+		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
+		self.scoreMat.set_data(0,0, 0)
+		for i in range(1, l1 + 1): # set each row by the desired gap
+			self.scoreMat.set_data(i,0, 0)
+			self.leftMat.score.set_data(i,0, None) #[0] = None
+			self.upMat.score.set_data(i,0, None)
+		for j in range(1, l2 + 1): # set each column by the desired gap
+			self.scoreMat.set_data(0,j, 0)
+			self.leftMat.score.set_data(0,j, None) #[0] = None
+			self.upMat.score.set_data(0,j, None)
+			
+		self.masked = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1)
+
+		for i in range(1, l1+1): # per base-pair in sequence 1 ...
+			for j in range(1, l2+1): # per base-pair in sequence 2, align them
+				self.mask.set_data(i,j,1)
+				if (self.nodeTypes[self.seq1.seq[i-1]] == 'C' and self.nodeTypes[self.seq2.seq[j-1]] == 'A') or (self.nodeTypes[self.seq1.seq[i-1]] == 'A' and self.nodeTypes[self.seq2.seq[j-1]] == 'C'):
+					score = None # no match if one is a C type and the other is an A type
+				elif (self.nodeTypes[self.seq1.seq[i-1]] == 'T') ^ (self.nodeTypes[self.seq2.seq[j-1]] == 'T'):
+					score = None # no match if one is a T type and the other is not
+				elif self.scoreMat.get_data(i-1,j-1) is None:
+					score = None # Diagonal is an unreachable position due to pre-consensus
+				else:
+					score = self.scoreMat.get_data(i-1,j-1) + get_score(self.seq1.seq[i-1], self.seq2.seq[j-1], self.submat)
+				
+				# Cost for gapping left (over sequence 1)
+				left, lefti, leftj = self.calculate_gap(i,
+											j,
+											self.seq1.seq,
+											self.seq2.seq,
+											self.scoreMat,
+											self.directionMat,
+											self.leftMat,
+											self.TADict1,
+											1)
+
+				# Cost for gapping up (over sequence 2)
+				up, upj, upi = self.calculate_gap(j,
+											i,
+											self.seq2.seq,
+											self.seq1.seq,
+											self.scoreMat.T,
+											self.directionMat.T,
+											self.upMat.T,
+											self.TADict2,
+											2)
+				
+			#	if (i == 539 and j == 31):
+			#		print(str(i)+'; '+str(j)+ '; 1: ' +self.seq1.seq[i-1]+ '; 2: '+self.seq2.seq[j-1]+'; Sc: ' +str(score)+ '; Left: '+str(left)+'; Up: '+str(up))
+			#	if (i == 538 and j == 30):
+			#		print(str(i)+'; '+str(j)+ '; 1: ' +self.seq1.seq[i-1]+ '; 2: '+self.seq2.seq[j-1]+'; Sc: ' +str(score)+ '; Left: '+str(left)+'; Up: '+str(up))
+				
+				#out(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
+				if score is not None and (left is None or score >= left) and (up is None or score >= up):
+					# Node match is allowed and produces the best score
+					self.scoreMat.set_data(i,j, score)
+					self.directionMat.set_data(i,j, 0)
+					self.backPos[i,j] = i-1,j-1
+					#if (i == 539 and j == 31):
+					#	print("Picked diagonal; prev pos is: "+str(self.backPos[i,j]))
+					#out('MATCH')
+				elif left is not None and (up is None or left >= up):
+					# Gapping left is allowed and produces the best score
+					self.scoreMat.set_data(i,j, left)
+					self.directionMat.set_data(i,j, 1)
+					self.backPos[i,j] = lefti,leftj
+					#out('LEFT')
+				elif up is not None:
+					# Gapping up is allowed and produces the best score
+					self.scoreMat.set_data(i,j, up)
+					self.directionMat.set_data(i,j, 2)
+					self.backPos[i,j] = upi,upj
+					#out('UP')
+				else:
+					# This location is unreachable due to presence of a pre-consensus sequence
+					self.scoreMat.set_data(i,j,None)
+
+				# SmithWaterman minimum cell score is 0
+				if self.scoreMat.get_data(i,j) is not None and self.scoreMat.get_data(i,j) < 0:
+					self.scoreMat.set_data(i,j,0)
+
+	def _find_next_alignment(self,min_score):
+		bestScore = min_score
+		bestIJ = 0,0
+		l1, l2 = len(self.seq1.seq), len(self.seq2.seq)	
+		for i in range(1, l1+1):
+			for j in range(1, l2+1):
+				if not self.masked.get_data(i,j) and self.scoreMat.get_data(i,j) >= bestScore:
+					bestScore = self.scoreMat.get_data(i,j)
+					bestIJ = i,j
+		return bestIJ
+	
+	def _backtrace(self,i,j):
+		keepGapping = 0
+		align1 = ""
+		align2 = ""
+		initialI = i
+		initialJ = j
+		# walk-back until score of 0 is reached
+		while self.scoreMat.get_data(i,j) > 0: 
+			prevI = i
+			prevJ = j
+			# Mask this position from future alignment searching
+			self.masked.set_data(i,j, 1)
+
+			# if score is a gap in sequence 2 (direction is 1), only walk back on i
+			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
+				
+				# If the node being gapped is a T-node, appropriately gap the entire subtree
+				if self.nodeTypes[self.seq1.seq[i-1]] == 'T':
+					# Get previ and prevj depending on whether "forced" gapping or not
+					if keepGapping == 1:
+						previ = self.TADict1[i-1]
+						prevj = j
+					else:
+						previ = self.backPos[i,j][0]
+						prevj = self.backPos[i,j][1]
+
+					#print(str(self.backPos[i,j]) + ' ' + str(previ)+' '+str(prevj))
+					while i > previ+1: # Walk back with gaps until the one position greater than the final position
+						align1 += self.seq1.seq[i-1]
+						align2 += '-'
+						i -= 1
+					if keepGapping != 1 and prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
+						align1 += self.seq1.seq[i-1]
+						align2 += self.seq2.seq[j-1]
+						i -= 1
+						j -= 1
+					else: # otherwise the A is also gapped
+						align1 += self.seq1.seq[i-1]
+						align2 += '-'
+						i -= 1
+				# otherwise just gap the current node (it will be a C-node)
+				else:
+					align1 += self.seq1.seq[i-1]
+					align2 += '-'
+					i -= 1
+					
+				# Check whether the choice of gapping left requires the leftward position to also gap left
+				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
+					keepGapping = 1
+				else:
+					keepGapping = 0
+
+			# if score is a gap in sequence 1 (direction is 2), only walk back on j
+			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
+				if self.nodeTypes[self.seq2.seq[j-1]] == 'T':
+					# Get previ and prevj depending on whether "forced" gapping or not
+					if keepGapping == 2:
+						previ = i
+						prevj = self.TADict2[j-1]
+					else:
+						previ = self.backPos[i,j][0]
+						prevj = self.backPos[i,j][1]
+
+					while j > prevj+1:
+						align1 += '-'
+						align2 += self.seq2.seq[j-1]
+						j -= 1
+					if keepGapping != 2 and previ < i:
+						align1 += self.seq1.seq[i-1]
+						align2 += self.seq2.seq[j-1]
+						i -= 1
+						j -= 1
+					else:
+						align1 += '-'
+						align2 += self.seq2.seq[j-1]
+						j -= 1
+				else:
+					align1 += '-'
+					align2 += self.seq2.seq[j-1]
+					j -= 1
+					
+				# Check whether the choice of gapping up requires the leftward position to also gap up
+				if self.upMat.extend_flag.get_data(i,j) == True:
+					keepGapping = 2
+				else:
+					keepGapping = 0
+
+			# if the score is a match, walk-back one index in both i and j
+			elif self.directionMat.get_data(i,j) == 0:
+				keepGapping = 0
+				align1 += self.seq1.seq[i-1]
+				align2 += self.seq2.seq[j-1]
+				i -= 1
+				j -= 1
+		
+		# Reverse the alignment strings as they are assembled backwards
+		align1 = align1[::-1]
+		align2 = align2[::-1]
+		
+		alignment = LocalAlignment(self.seq1,self.seq2,align1,align2,self.scoreMat.get_data(initialI,initialJ),prevI,prevJ,initialI,initialJ)
+		return alignment
+
+	def get_alignments(self,min_score):
+		if self.min_score is None or min_score < self.min_score:
+			found_new = true
+			# Run alignment search and backtraces
+			while found_new:
+				# Find current best score and end alignment position
+				i,j = _find_next_alignment(min_score)
+				
+				if i > 0: # An alignment better than min_score was found
+					# Traceback to get alignment
+					alignment = _backtrace(i,j)
+					_alignments.extend(alignment)
+					found_new = true
+				else:
+					found_new = false
+
+		# Go through current alignments and pull out those with sufficient score to return
+		select_alignments = []
+		for alignment in self._alignments:
+			if alignment.score >= min_score:
+				select_alignments.extend(alignment)
+				
+		self.min_score = min_score
+		return select_alignments
+
 # Helper-function to write a string
 def out(s):
 	sys.stdout.write(s+'\n')
