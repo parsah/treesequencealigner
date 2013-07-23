@@ -488,7 +488,7 @@ class PairwiseDriver():
             
         self.scorehandle = open(input_state.get_args()['o'], openMode) # output file
         self.alignhandle = None
-        if input_state.get_args()['a'] is not '':
+        if input_state.get_args()['a'] is not None:
             self.alignhandle = open(input_state.get_args()['a'], openMode) # alignments file
             
         self.num_workers = input_state.get_args()['n']
