@@ -1,4 +1,4 @@
-from matrix import Matrix
+from matrix import StateMatrix
 
 class DirectionalMatrixWrapper():
 	'''
@@ -9,8 +9,8 @@ class DirectionalMatrixWrapper():
 		self.nrows = nrows
 		self.ncols = ncols
 		if T is None:
-			self.score = Matrix(nrows,ncols)
-			self.extend_flag = Matrix(nrows,ncols)
+			self.score = StateMatrix(nrows,ncols)
+			self.extend_flag = StateMatrix(nrows,ncols)
 			self.T = DirectionalMatrixWrapper(nrows,ncols,self)
 		else:
 			self.T = T

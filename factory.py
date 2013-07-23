@@ -1,5 +1,5 @@
 import sys
-from matrix import Matrix
+from matrix import StateMatrix
 from wrapper import DirectionalMatrixWrapper
 
 def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
@@ -200,8 +200,8 @@ class NeedlemanWunsch():
 	# Execute alignment
 	def _aligner(self):
 		l1, l2 = len(self.seq1.seq), len(self.seq2.seq)	
-		self.scoreMat = Matrix(l1+1, l2+1) # create matrix for storing counts
-		self.directionMat = Matrix(l1+1, l2+1)
+		self.scoreMat = StateMatrix(l1+1, l2+1) # create matrix for storing counts
+		self.directionMat = StateMatrix(l1+1, l2+1)
 		# Each position contains a 2-tuple of the respective gap score and True if the gap is a continuation, False if it is new
 		self.leftMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
 		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))

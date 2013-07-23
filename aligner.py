@@ -113,7 +113,7 @@ class CommandLineParser():
         param_opts.add_argument('--threshold_type', metavar='STR', default='percent', 
                     help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
-                    help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalized,long_normalized')
+                    help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalize,long_normalize')
         param_opts.add_argument('--randomOrder', action='store_const', const=True, default=False)
         param_opts.add_argument('--forceQuery', action='store_const', const=True, default=False)
         param_opts.add_argument('-h','--help', action='help',
@@ -539,9 +539,9 @@ class PairwiseDriver():
             return self.count_gaps(result)
         elif self.score_type is 'excess_gaps':
             return self.count_excess_gaps(result)
-        elif self.score_type is 'short_normalized':
+        elif self.score_type is 'short_normalize':
             return self.calc_short_normalized(result)
-        elif self.score_type is 'long_normalized':
+        elif self.score_type is 'long_normalize':
             return self.calc_long_normalized(result)
 
     # Just gets the total number of gaps in the alignment
