@@ -19,12 +19,12 @@ class ArgumentValidator():
         self.check_biopython()
         self.check_args()
 
-    # Check python 3.3 is available
+    # Check python 3.0+ is available
     def check_python(self):
         if platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
             out('Python v. '+ str(platform.python_version()) + ' found [OK]')
         else:
-            raise RuntimeError('Python 3.2+ recommended')
+            raise RuntimeError('Python 3.0+ recommended')
 
     # BioPython must be installed
     def check_biopython(self):
@@ -72,50 +72,56 @@ class ArgumentValidator():
 # Helper-class to parse input arguments
 class CommandLineParser():
     def __init__(self):
-        desc = 'Script to execute exhaustive brute-force pairwise alignment'
+        desc = 'Pairwise and multiple sequence alignment (MSA) of neurite sequences.'
         u='%(prog)s [options]' # command-line usage
         self.parser = argparse.ArgumentParser(description=desc, add_help=False, usage=u)
         self._init_params()
 
     # Create parameters to be used throughout the application
     def _init_params(self):
-        param_reqd = self.parser.add_argument_group('Required Parameters')
-        param_opts = self.parser.add_argument_group('Optional Parameters')
-        #param_costs = self.parser.add_argument_group('Specific Costs')
+        param_aln = self.parser.add_argument_group('Required alignment parameters')
+        param_local = self.parser.add_argument_group('Pairwise parameters')
+        param_msa = self.parser.add_argument_group('MSA parameters')
+        param_opts = self.parser.add_argument_group('Optional parameters')
 
         # Specify required arguments
-        param_reqd.add_argument('-f', metavar='FILE', required=True,
-                    help='Input fasta file [na]')
-        param_reqd.add_argument('--mode', metavar='MODE', required=True,
-                    help='Either pairwise (local), multiple-sequence (msa), or msa consensus only (consensus) [na]')
+        param_aln.add_argument('-f', metavar='FILE',
+                    help='Input FASTA file [na]')
+        param_aln.add_argument('--mode', metavar='MODE',
+                    choices=['local', 'msa', 'domain'],
+                    help='Analysis mode {local, msa, domain} [msa]')
+        param_aln.add_argument('--matrix', metavar='STR', default=None,
+                    help='Matrix; see Biopython MatrixInfo [na]')
         
-        # Specify optional arguments
-        param_opts.add_argument('-f2', metavar='FILE', required=False, default=None,
-                    help='Second input fasta file [na]')
-        param_opts.add_argument('--gap', metavar='INT', default=-8, type=int,
+        # Local-alignment specific parameters
+        param_local.add_argument('--gap', metavar='INT', default=-8, type=int,
                     help='Gap extension penalty [-8]')
-        param_opts.add_argument('--gapopen', metavar='INT', default=0, type=int,
+        param_local.add_argument('--gapopen', metavar='INT', default=0, type=int,
                     help='Gap open penalty (in addition to, not instead of, extension penalty) [0]')
+        
+        # MSA specific parameters
+        param_msa.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
+                    help='Consensus threshold [0.7]')
+        param_msa.add_argument('--threshold_type', metavar='STR', default='percent', 
+                    choices=['percent', 'sqrt'],
+                    help='Threshold type {percent, sqrt} [percent]')
+        param_msa.add_argument('--randomOrder', action='store_const', const=True, default=False)
+        
+        # General, optional arguments
+        param_opts.add_argument('-f2', metavar='FILE', default=None,
+                    help='Second input FASTA file [na]')
         param_opts.add_argument('-custom', metavar='FILE', default=None,
                     help='Custom substitution matrix [na]')
         param_opts.add_argument('-nodeTypes', metavar='FILE', default=None,
                     help='Node Type Specifications [na]')
-        param_opts.add_argument('-matrix', metavar='STR', default=None,
-                    help='Matrix name; see Biopython MatrixInfo for all matrices [na]')
         param_opts.add_argument('-n', metavar='INT', default=2, type=int,
                     help='Number of worker processes [2]')
         param_opts.add_argument('-o', metavar='FILE', default='scores.tab', 
                     help='File to write/append output [scores.tab]')
         param_opts.add_argument('-a', metavar='FILE', default=None, 
                     help='File to write/append alignments [na]')
-        param_opts.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
-                    help='Consensus threshold [0.7]')
-        param_opts.add_argument('--threshold_type', metavar='STR', default='percent', 
-                    help='Threshold type [percent]')
         param_opts.add_argument('-s', metavar='STR', default='alignment', 
                     help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalize,long_normalize')
-        param_opts.add_argument('--randomOrder', action='store_const', const=True, default=False)
-        param_opts.add_argument('--forceQuery', action='store_const', const=True, default=False)
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
 
@@ -281,7 +287,7 @@ class TreeLogicFactory():
                 consensus += char1
             else:
                 # Apply neuronal logic given two specific characters.
-               consensus += TreeIndexLogic(char1, char2).get()
+                consensus += TreeIndexLogic(char1, char2).get()
         return NeuriteSequence(name='alignment', sequence=consensus)
 
 class MultipleSequenceDriver():
@@ -473,11 +479,7 @@ class PairwiseDriver():
         self.costs = input_state.get_penalties() # set costs to factory
         self.submat = input_state.get_submatrix() # set submatrix to factory
         self.score_type = input_state.get_scoretype()
-        self.forceQuery = input_state.get_args()['forceQuery']
-
-        # Get sequences already completed and remove from queries
-        self.priorCompletions = parse_output(input_state.get_args()['o'])
-        self.num_complete = len(self.priorCompletions) # for how many sequences have been aligned
+        self.num_complete = 0# len(self.priorCompletions) # for how many sequences have been aligned
         #out(str(self.num_complete)+" complete of "+str(len(targets)))
 
         # Set openMode to append if some targets have already been run and completed
@@ -502,15 +504,10 @@ class PairwiseDriver():
     def start(self):
         out('--- Pairwise alignment mode ---')
         executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
-        if self.forceQuery:
-            queryCompletions = []
-        else:
-            queryCompletions = self.priorCompletions
         try:
             for target in self.targets: # per fasta, create a concurrent job, f.
-                if target.name not in self.priorCompletions:
-                    f = executor.submit(pairwise_mapper, target, queries, self.costs, self.submat, self.nodeTypes, queryCompletions)
-                    f.add_done_callback(self._callback)
+                f = executor.submit(pairwise_mapper, target, queries, self.costs, self.submat, self.nodeTypes)
+                f.add_done_callback(self._callback)
             executor.shutdown()
             self.close_output_buffers()
             out('** Analysis Complete **')
@@ -598,18 +595,13 @@ class PairwiseDriver():
             ' of '+ str(len(self.targets))) # print-out progress
 
 # Maps each query sequence against a set of targets (itself)
-def pairwise_mapper(target, queries, costs, submat, nodeTypes, priorCompletions):
+def pairwise_mapper(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
     # get the gap and substitution matrix
     for query in queries:
-        # Doesn't run the current query if it has already been run as a target (avoid duplicating effort)
-        if query.name not in priorCompletions:
-            NW = factory.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
-            output = NW.prettify()
-            results.append(output)
-        else:
-            #print(query.name+' already completed')
-            results.append([None,None,query.name])
+        NW = factory.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
+        output = NW.prettify()
+        results.append(output)
     return target.name, results
 
 if __name__ == '__main__':

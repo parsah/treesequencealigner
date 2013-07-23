@@ -1,6 +1,5 @@
 import sys
-from matrix import StateMatrix
-from wrapper import DirectionalMatrixWrapper
+from matrix import StateMatrix, DirectionalMatrixWrapper
 
 def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
 	'''
@@ -405,7 +404,7 @@ class TreewiseSmithWaterman():
 		self.upMat = None # references diag(0),left(1),up(2) matrix
 		self.backPos = {} # the backtrace position from one position to its prior (contains integer pairs)
 		self._alignments = []
- 		self.masked = None
+		self.masked = None
 		self.min_score = None
 		self.curr_min_score = None
 		self._aligner()
