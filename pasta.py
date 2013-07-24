@@ -1,5 +1,3 @@
-import argparse
-import platform
 import concurrent.futures
 import sys
 import os
@@ -11,240 +9,34 @@ from model import NeuriteSequence
 from collections import Counter
 from random import shuffle
 
-# Validates user-provided command-line arguments
-class ArgumentValidator():
-    def __init__(self, args):
-        self.args = args
-        self.check_python()
-        self.check_biopython()
-        self.check_args()
-
-    # Check python 3.0+ is available
-    def check_python(self):
-        if platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
-            out('Python v. '+ str(platform.python_version()) + ' found [OK]')
-        else:
-            raise RuntimeError('Python 3.0+ recommended')
-
-    # BioPython must be installed
-    def check_biopython(self):
-        try:
-            import Bio
-            out('BioPython v.' + Bio.__version__ + ' found [OK]')
-        except ImportError:
-            raise ImportError('Make sure BioPython is installed')
-
-    # Checks user-provided arguments are valid
-    def check_args(self):
-        return all([self.test_num_workers(), self.test_mutual_matrices(),
-                self.test_valid_matrix(),self.test_threshold_type()])
-
-    # Test either a custom matrix or in-built matrix is selected
-    def test_mutual_matrices(self):
-        if self.args['custom'] and self.args['matrix']:
-            raise IOError('Either a custom or in-built matrix must be selected')
-        else:
-            return True
-
-    # Test a valid substitution matrix is selected
-    def test_valid_matrix(self):
-        all_matrices = set(MatrixInfo.available_matrices) # al sub. matrices
-        if self.args['matrix'] in all_matrices or self.args['custom']:
-            return True
-        else:
-            err = 'An in-built (URL below) or custom matrix is required.\n'+\
-            'http://biopython.org/DIST/docs/api/Bio.SubsMat.MatrixInfo-module.html'
-            raise IOError(err)
-
-    # Test a valid number of workers are provided
-    def test_num_workers(self):
-        if self.args['n'] >= 1:
-            return True
-        else:
-            raise IOError('>= 1 worker processes must be provided')
-
-    def test_threshold_type(self):
-        if self.args['threshold_type'] != 'percent' and self.args['threshold_type'] != 'sqrt':
-            raise IOError("threshold_type must be \'percent\' or \'sqrt\'")
-        else:
-            return True
-
-# Helper-class to parse input arguments
-class CommandLineParser():
-    def __init__(self):
-        desc = 'Pairwise and multiple sequence alignment (MSA) of neurite sequences.'
-        u='%(prog)s [options]' # command-line usage
-        self.parser = argparse.ArgumentParser(description=desc, add_help=False, usage=u)
-        self._init_params()
-
-    # Create parameters to be used throughout the application
-    def _init_params(self):
-        param_aln = self.parser.add_argument_group('Required alignment parameters')
-        param_local = self.parser.add_argument_group('Pairwise parameters')
-        param_msa = self.parser.add_argument_group('MSA parameters')
-        param_opts = self.parser.add_argument_group('Optional parameters')
-
-        # Specify required arguments
-        param_aln.add_argument('-f', metavar='FILE',
-                    help='Input FASTA file [na]')
-        param_aln.add_argument('--mode', metavar='MODE',
-                    choices=['local', 'msa', 'domain'],
-                    help='Analysis mode {local, msa, domain} [msa]')
-        param_aln.add_argument('--matrix', metavar='STR', default=None,
-                    help='Matrix; see Biopython MatrixInfo [na]')
-        
-        # Local-alignment specific parameters
-        param_local.add_argument('--gap', metavar='INT', default=-8, type=int,
-                    help='Gap extension penalty [-8]')
-        param_local.add_argument('--gapopen', metavar='INT', default=0, type=int,
-                    help='Gap open penalty (in addition to, not instead of, extension penalty) [0]')
-        
-        # MSA specific parameters
-        param_msa.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
-                    help='Consensus threshold [0.7]')
-        param_msa.add_argument('--threshold_type', metavar='STR', default='percent', 
-                    choices=['percent', 'sqrt'],
-                    help='Threshold type {percent, sqrt} [percent]')
-        param_msa.add_argument('--randomOrder', action='store_const', const=True, default=False)
-        
-        # General, optional arguments
-        param_opts.add_argument('-f2', metavar='FILE', default=None,
-                    help='Second input FASTA file [na]')
-        param_opts.add_argument('-custom', metavar='FILE', default=None,
-                    help='Custom substitution matrix [na]')
-        param_opts.add_argument('-nodeTypes', metavar='FILE', default=None,
-                    help='Node Type Specifications [na]')
-        param_opts.add_argument('-n', metavar='INT', default=2, type=int,
-                    help='Number of worker processes [2]')
-        param_opts.add_argument('-o', metavar='FILE', default='scores.tab', 
-                    help='File to write/append output [scores.tab]')
-        param_opts.add_argument('-a', metavar='FILE', default=None, 
-                    help='File to write/append alignments [na]')
-        param_opts.add_argument('-s', metavar='STR', default='alignment', 
-                    help='Type of score to write to output file [alignment]\n\talignment,gaps,excess_gaps,short_normalize,long_normalize')
-        param_opts.add_argument('-h','--help', action='help',
-                    help='Show this help screen and exit')
-
-    # Get the arguments for each parameter
-    def parse_args(self):
-        return vars(self.parser.parse_args()) # parse arguments
-
-# An InputStateWrapper wraps data used as input, eg. fasta file,
-# custom matrix, user-provided arguments, etc.
-class InputWrapperState():
-    def __init__(self, args):
-        self.args = args # reference user-provided arguments
-        self.subsmat = None # references data for substitution matrix
-        self.fname = args['f'] # input filename
-        self.fname2 = args['f2'] # input filename
-        self.score_type = args['s']
-        self.alignment_file = args['a']
-
-    # Get arguments
-    def get_args(self):
-        return self.args
-
-    # Get arguments relative to penalties
-    def get_penalties(self):
-        cost_ids = ('gap','gapopen') # all possible costs, might in the future include a separate gap open and gap extension cost
-        return {k: self.args[k] for k in cost_ids} # get costs per penality
-
-    # Get the substitution matrix which will be used
-    def get_submatrix(self):
-        return self.subsmat
-
-    # Get the type of score to be used in the output file
-    def get_scoretype(self):
-        return self.score_type
-        
-    # Trivial function to parse a fasta file
-    def parse_fasta(self, fname):
-        parsed_fasta = list(SeqIO.parse(fname, 'fasta')) # easy indexing
-        queries = [] # references list of parsed sequences
-        for i in parsed_fasta: # cast as a neuronal sequence; easy modeling.
-            s = NeuriteSequence(sequence=str(i.seq), name=i.name)
-            queries.append(s)
-        out(str(len(queries)) + ' queries parsed [OK]')
-        return queries # return set of fasta entries
-
-    # Trivial function to write parameter arguments to a file 
-    def write_args(self):
-        outhandle = open('param_args.tab', 'w')
-        outhandle.write('Parameter\tValue\n') # write header
-        outhandle.flush()
-        for i in sorted(self.args):
-            outhandle.write(i+'\t'+str(self.args[i])+'\n') # write args
-            outhandle.flush()
-        outhandle.close()
-        out('') # write new line
-
-    # Set the desired matrix the user wishes to add
-    def assign_matrix(self):
-        if not self.args['matrix']: # if no in-built matrix, parse custom matrix
-            self.subsmat = self.__parse_custom_matrix() # custom matrix
-        else:
-            self.subsmat = self.__parse_inbuilt_matrix()
-
-    # Get the user-provided in-built matrix
-    def __parse_inbuilt_matrix(self):
-        return getattr(MatrixInfo, args['matrix']) # get substitution matrix
-
-    # Function to parse custom scoring matrix.
-    def __parse_custom_matrix(self):
-        """ 
-        A schema is organized such that you have 3 columns: A, B, C.
-        Columns A and B represents the query and target base, respectively.
-        Column C is the real-number assigned to the mismatch given A and B.
-        This file must be tab-delimited.
-        Example:
-        A    T    -5
-        A    C    2
-        A    G    -2
-        A    A    8
-        T    A    2 
-        ... 
-        etc. 
-        """
-        submat = {} # the substitution matrix
-        for line in open(self.args['custom']): # parse custom matrix file
-            line = line.strip()
-            if len(line) == 0: # if an empty line, terminate analysis
-                break
-            else: # pertains to parsing of the custom substition matrix
-                line = line.split('\t')
-                if len(line) < 3:
-                    raise IndexError('Custom matrix must have 3x columns')
-                else: # set the Query (A) and Target (B) scores
-                    a, b, score = line[0], line[1], float(line[2])
-                    submat[(a, b)] = score
-        return submat
+version = 0.1
 
 # Helper-function to write a string
 def out(s):
     sys.stdout.write(s+'\n')
 
-# Function to parse a preexisting version of the file that will be written to, returning a list of sequences already aligned
-def parse_output(fname):
-    alreadyDone = []
-    if os.path.isfile(fname):
-        for line in open(fname):
-            if len(line) == 0:
-                break
-            else:
-                sequenceName = line.split('\t',1)[0]
-                if len(sequenceName) > 0:
-                    alreadyDone.append(sequenceName)
-    return alreadyDone
+# # Function to parse a preexisting version of the file that will be written to, returning a list of sequences already aligned
+# def parse_output(fname):
+#     alreadyDone = []
+#     if os.path.isfile(fname):
+#         for line in open(fname):
+#             if len(line) == 0:
+#                 break
+#             else:
+#                 sequenceName = line.split('\t',1)[0]
+#                 if len(sequenceName) > 0:
+#                     alreadyDone.append(sequenceName)
+#     return alreadyDone
 
-# Function to parse multiple alignment file for use in consensus filtering
-def parse_alignments(fname):
-    alignments = []
-    if os.path.isfile(fname):
-        for line in open(fname):
-            parts = line.split()
-            if parts[0] != 'Preconsensus':
-                alignments.append(parts[1])
-    return alignments
+# # Function to parse multiple alignment file for use in consensus filtering
+# def parse_alignments(fname):
+#     alignments = []
+#     if os.path.isfile(fname):
+#         for line in open(fname):
+#             parts = line.split()
+#             if parts[0] != 'Preconsensus':
+#                 alignments.append(parts[1])
+#     return alignments
 
 class TreeIndexLogic():
     ''' 
@@ -478,7 +270,6 @@ class PairwiseDriver():
         self.queries = queries
         self.costs = input_state.get_penalties() # set costs to factory
         self.submat = input_state.get_submatrix() # set submatrix to factory
-        self.score_type = input_state.get_scoretype()
         self.num_complete = 0# len(self.priorCompletions) # for how many sequences have been aligned
         #out(str(self.num_complete)+" complete of "+str(len(targets)))
 
@@ -506,7 +297,7 @@ class PairwiseDriver():
         executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
         try:
             for target in self.targets: # per fasta, create a concurrent job, f.
-                f = executor.submit(pairwise_mapper, target, queries, self.costs, self.submat, self.nodeTypes)
+                f = executor.submit(_aligner, target, queries, self.costs, self.submat, self.nodeTypes)
                 f.add_done_callback(self._callback)
             executor.shutdown()
             self.close_output_buffers()
@@ -525,49 +316,6 @@ class PairwiseDriver():
         h = '\t' +'\t'.join([h[-1] for h in results])
         self.scorehandle.write(h + '\n')
         self.scorehandle.flush()
-
-    # Determines which score to use and call the appropriate function
-    def calc_score(self, result):
-        if result[0] is None:
-            return None
-        elif self.score_type is 'alignment':
-            return result[0]
-        elif self.score_type is 'gaps':
-            return self.count_gaps(result)
-        elif self.score_type is 'excess_gaps':
-            return self.count_excess_gaps(result)
-        elif self.score_type is 'short_normalize':
-            return self.calc_short_normalized(result)
-        elif self.score_type is 'long_normalize':
-            return self.calc_long_normalized(result)
-
-    # Just gets the total number of gaps in the alignment
-    def count_gaps(self, result):
-        al1 = result[1][0]
-        al2 = result[1][1]
-        return al1.count('-')+al2.count('-')
-        
-    # Determine the number of gaps in excess of those required from the length difference between the two sequences
-    def count_excess_gaps(self, result):
-        al1 = result[1][0]
-        al2 = result[1][1]
-        gapsIn1 = al1.count('-')
-        gapsIn2 = al2.count('-')
-        seq1Len = len(al1)-gapsIn1
-        seq2Len = len(al2)-gapsIn2
-        return gapsIn1+gapsIn2-abs(seq1Len-seq2Len)
-        
-    # Divides the score by the smaller sequence length
-    def calc_short_normalized(self, result):
-        seq1Len = len(self.al1)-result[1][0].count('-')
-        seq2Len = len(self.al2)-result[1][1].count('-')
-        return result[0]/min(seq1Len,seq2Len)
-    
-    # Divides the score by the larger sequence length    
-    def calc_long_normalized(self, result):
-        seq1Len = len(self.al1)-result[1][0].count('-')
-        seq2Len = len(self.al2)-result[1][1].count('-')
-        return result[0]/max(seq1Len,seq2Len)
         
     # Callback function once a thread is complete
     def _callback(self, return_val):
@@ -578,7 +326,7 @@ class PairwiseDriver():
             self._create_header(results)
 
         # save scores to the alignment matrix
-        scores = '\t'.join([str(self.calc_score(s)) for s in results])
+        scores = '\t'.join([str(s[0]) for s in results])
         self.scorehandle.write(target + '\t' + scores + '\n')
         self.scorehandle.flush()
 
@@ -595,7 +343,7 @@ class PairwiseDriver():
             ' of '+ str(len(self.targets))) # print-out progress
 
 # Maps each query sequence against a set of targets (itself)
-def pairwise_mapper(target, queries, costs, submat, nodeTypes):
+def _aligner(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
     # get the gap and substitution matrix
     for query in queries:
@@ -606,6 +354,7 @@ def pairwise_mapper(target, queries, costs, submat, nodeTypes):
 
 if __name__ == '__main__':
     try:
+        from parameter import ArgumentValidator, CommandLineParser, InputWrapperState
         args = CommandLineParser().parse_args()
         ArgumentValidator(args) # test all arguments are correct
 
@@ -619,10 +368,11 @@ if __name__ == '__main__':
         if args['mode'] == 'local':
             driver = PairwiseDriver(targets, queries, input_state)
             driver.start() # start only pairwise alignment
-        elif args['mode'] == 'consensus' and args['a'] is not None:
-            alignments = parse_alignments(args['a'])
-            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
-            consensus_fact.build_consensus()
+            # TODO there is no 'consensus' mode; it is part of msa mode. 
+#         elif args['mode'] == 'consensus' and args['a'] is not None:
+#             alignments = parse_alignments(args['a'])
+#             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
+#             consensus_fact.build_consensus()
         else: # else, start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
             driver.build_preconsensus()
@@ -630,7 +380,5 @@ if __name__ == '__main__':
             alignments = driver.align()
             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
             consensus_fact.build_consensus()
-#             consensus_fact.enumerate_column(12)
-
     except (IOError, KeyboardInterrupt, IndexError) as e:
         out(str(e)+'\n')
