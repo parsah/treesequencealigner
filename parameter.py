@@ -1,7 +1,7 @@
 
 import argparse
 import platform
-from pasta import out
+from core import stdout
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from model import NeuriteSequence
@@ -18,7 +18,7 @@ class ArgumentValidator():
     # Check python 3.0+ is available
     def check_python(self):
         if platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
-            out('Python v. '+ str(platform.python_version()) + ' found [OK]')
+            stdout('Python v. '+ str(platform.python_version()) + ' found [OK]')
         else:
             raise RuntimeError('Python 3.0+ recommended')
 
@@ -26,7 +26,7 @@ class ArgumentValidator():
     def check_biopython(self):
         try:
             import Bio
-            out('BioPython v.' + Bio.__version__ + ' found [OK]')
+            stdout('BioPython v.' + Bio.__version__ + ' found [OK]')
         except ImportError:
             raise ImportError('Make sure BioPython is installed')
 
@@ -154,7 +154,7 @@ class InputWrapperState():
         for i in parsed_fasta: # cast as a neuronal sequence; easy modeling.
             s = NeuriteSequence(sequence=str(i.seq), name=i.name)
             queries.append(s)
-        out(str(len(queries)) + ' queries parsed [OK]')
+        stdout(str(len(queries)) + ' queries parsed [OK]')
         return queries # return set of fasta entries
 
     # Set the desired matrix the user wishes to add

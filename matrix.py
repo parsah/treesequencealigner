@@ -15,7 +15,7 @@ class StateMatrix():
                                 for _ in range(self.nrows)]
         self.state = [[0.0 for _ in range(self.ncols)] 
                                 for _ in range(self.nrows)]
-        self.transpose = Transpose(self)
+        self.transpose = TranspositionFactory(self)
         self.T = self.transpose
 
     def get_data(self,i,j):
@@ -42,7 +42,7 @@ class StateMatrix():
         for rownum in range(self.nrows):
             print(self.data[rownum], self._state[rownum])
 
-class Transpose():
+class TranspositionFactory():
     '''
     Works with StateMatrix classes to provide low cost matrix transposition.
     '''

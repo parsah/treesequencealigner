@@ -1,42 +1,16 @@
 import concurrent.futures
 import sys
 import os
-import factory
+import core
 import math
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from model import NeuriteSequence
 from collections import Counter
 from random import shuffle
+from core import stdout
 
 version = 0.1
-
-# Helper-function to write a string
-def out(s):
-    sys.stdout.write(s+'\n')
-
-# # Function to parse a preexisting version of the file that will be written to, returning a list of sequences already aligned
-# def parse_output(fname):
-#     alreadyDone = []
-#     if os.path.isfile(fname):
-#         for line in open(fname):
-#             if len(line) == 0:
-#                 break
-#             else:
-#                 sequenceName = line.split('\t',1)[0]
-#                 if len(sequenceName) > 0:
-#                     alreadyDone.append(sequenceName)
-#     return alreadyDone
-
-# # Function to parse multiple alignment file for use in consensus filtering
-# def parse_alignments(fname):
-#     alignments = []
-#     if os.path.isfile(fname):
-#         for line in open(fname):
-#             parts = line.split()
-#             if parts[0] != 'Preconsensus':
-#                 alignments.append(parts[1])
-#     return alignments
 
 class TreeIndexLogic():
     ''' 
@@ -88,11 +62,14 @@ class MultipleSequenceDriver():
     '''
     def __init__(self, queries, input_state):
         self.queries = queries
-        self.costs = input_state.get_penalties() # set costs to factory
-        self.submat = input_state.get_submatrix() # set submatrix to factory
+        self.costs = input_state.get_penalties() # set costs to core
+        self.submat = input_state.get_submatrix() # set submatrix to core
         self.preconsensus = None # initially, no pre-consensus exists
         self.alignment_file = input_state.alignment_file
-        self.random_order = input_state.get_args()['randomOrder']
+        self.random_order = False
+
+    def set_randomize(self, bool):
+        self.random_order = bool
 
     def build_preconsensus(self):
         ''' 
@@ -106,12 +83,12 @@ class MultipleSequenceDriver():
             # Randomize the order of the sequences
             shuffle(queries)
 
-        out('--- Multiple sequence alignment mode ---')
+        stdout('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
         s0 = queries[0]
         s1 = queries[1]
         # pass them both into the tree--based Needleman--Wunsch algorithm.
-        nw = factory.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=factory.default_nodetypes())
+        nw = core.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=core.default_nodetypes())
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
         consensus = TreeLogicFactory(str1=first_align, 
@@ -119,9 +96,9 @@ class MultipleSequenceDriver():
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(queries)):
             curr_seq = queries[i]
-            nw = factory.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
+            nw = core.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
-                                         nodeTypes=factory.default_nodetypes())
+                                         nodeTypes=core.default_nodetypes())
             align_sA, align_sB = nw.prettify()[1]
             consensus = TreeLogicFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
@@ -146,9 +123,9 @@ class MultipleSequenceDriver():
         name_lengths = []
         for curr_seq in self.queries:
             # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
-            nw = factory.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
+            nw = core.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
                                     costs=self.costs, submat=self.submat, 
-                                    nodeTypes=factory.default_nodetypes(),consensus=2)
+                                    nodeTypes=core.default_nodetypes(),consensus=2)
             # sequence sA is the query alignment while sB is the pre-consensus.
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
@@ -266,12 +243,12 @@ class PairwiseDriver():
     Executes the pairwise application
     '''
     def __init__(self, targets, queries, input_state):
-        self.targets = targets # factory operates given targets and queries
+        self.targets = targets # core operates given targets and queries
         self.queries = queries
-        self.costs = input_state.get_penalties() # set costs to factory
-        self.submat = input_state.get_submatrix() # set submatrix to factory
+        self.costs = input_state.get_penalties() # set costs to core
+        self.submat = input_state.get_submatrix() # set submatrix to core
         self.num_complete = 0# len(self.priorCompletions) # for how many sequences have been aligned
-        #out(str(self.num_complete)+" complete of "+str(len(targets)))
+        #stdout(str(self.num_complete)+" complete of "+str(len(targets)))
 
         # Set openMode to append if some targets have already been run and completed
         if self.num_complete > 0:
@@ -287,13 +264,13 @@ class PairwiseDriver():
         self.num_workers = input_state.get_args()['n']
         # Get node type lists
         if input_state.get_args()['nodeTypes'] is None:
-            self.nodeTypes = factory.default_nodetypes()
+            self.nodeTypes = core.default_nodetypes()
         else:
-            self.nodeTypes = factory.parse_nodetypes(input_state.get_args()['nodeTypes'])
+            self.nodeTypes = core.parse_nodetypes(input_state.get_args()['nodeTypes'])
 
-    # Initialize the factory given query sequences and input arguments
+    # Initialize the core given query sequences and input arguments
     def start(self):
-        out('--- Pairwise alignment mode ---')
+        stdout('--- Pairwise alignment mode ---')
         executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
         try:
             for target in self.targets: # per fasta, create a concurrent job, f.
@@ -301,7 +278,7 @@ class PairwiseDriver():
                 f.add_done_callback(self._callback)
             executor.shutdown()
             self.close_output_buffers()
-            out('** Analysis Complete **')
+            stdout('** Analysis Complete **')
         except KeyboardInterrupt:
             executor.shutdown()
 
@@ -339,15 +316,15 @@ class PairwiseDriver():
                     self.alignhandle.write(out_str + '\n')
                     self.alignhandle.flush()
         self.num_complete += 1
-        out(' --> ' + target + ' [OK] '+str(self.num_complete) +
-            ' of '+ str(len(self.targets))) # print-out progress
+        stdout(' --> ' + target + ' [OK] '+str(self.num_complete) +
+            ' of '+ str(len(self.targets))) # print-stdout progress
 
 # Maps each query sequence against a set of targets (itself)
 def _aligner(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
     # get the gap and substitution matrix
     for query in queries:
-        NW = factory.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
+        NW = core.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
         output = NW.prettify()
         results.append(output)
     return target.name, results
@@ -381,4 +358,4 @@ if __name__ == '__main__':
             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
             consensus_fact.build_consensus()
     except (IOError, KeyboardInterrupt, IndexError) as e:
-        out(str(e)+'\n')
+        stdout(str(e)+'\n')

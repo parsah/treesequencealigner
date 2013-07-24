@@ -256,25 +256,25 @@ class NeedlemanWunsch():
 												2)
 				
 				
-				#out(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
+				#stdout(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
 				if score is not None and (left is None or score >= left) and (up is None or score >= up):
 					# Node match is allowed and produces the best score
 					self.scoreMat.set_data(i,j, score)
 					self.directionMat.set_data(i,j, 0)
 					self.backPos[i,j] = i-1,j-1
-					#out('MATCH')
+					#stdout('MATCH')
 				elif left is not None and (up is None or left >= up):
 					# Gapping left is allowed and produces the best score
 					self.scoreMat.set_data(i,j, left)
 					self.directionMat.set_data(i,j, 1)
 					self.backPos[i,j] = lefti,leftj
-					#out('LEFT')
+					#stdout('LEFT')
 				elif up is not None:
 					# Gapping up is allowed and produces the best score
 					self.scoreMat.set_data(i,j, up)
 					self.directionMat.set_data(i,j, 2)
 					self.backPos[i,j] = upi,upj
-					#out('UP')
+					#stdout('UP')
 				else:
 					# This location is unreachable due to presence of a pre-consensus sequence
 					self.scoreMat.set_data(i,j,None)
@@ -591,7 +591,7 @@ class TreewiseSmithWaterman():
 			#	if (i == 538 and j == 30):
 			#		print(str(i)+'; '+str(j)+ '; 1: ' +self.seq1.seq[i-1]+ '; 2: '+self.seq2.seq[j-1]+'; Sc: ' +str(score)+ '; Left: '+str(left)+'; Up: '+str(up))
 				
-				#out(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
+				#stdout(str(i)+' '+str(j)+' match='+str(score)+' left='+str(left)+' up='+str(up))
 				if score is not None and (left is None or score >= left) and (up is None or score >= up):
 					# Node match is allowed and produces the best score
 					self.scoreMat.set_data(i,j, score)
@@ -599,19 +599,19 @@ class TreewiseSmithWaterman():
 					self.backPos[i,j] = i-1,j-1
 					#if (i == 539 and j == 31):
 					#	print("Picked diagonal; prev pos is: "+str(self.backPos[i,j]))
-					#out('MATCH')
+					#stdout('MATCH')
 				elif left is not None and (up is None or left >= up):
 					# Gapping left is allowed and produces the best score
 					self.scoreMat.set_data(i,j, left)
 					self.directionMat.set_data(i,j, 1)
 					self.backPos[i,j] = lefti,leftj
-					#out('LEFT')
+					#stdout('LEFT')
 				elif up is not None:
 					# Gapping up is allowed and produces the best score
 					self.scoreMat.set_data(i,j, up)
 					self.directionMat.set_data(i,j, 2)
 					self.backPos[i,j] = upi,upj
-					#out('UP')
+					#stdout('UP')
 				else:
 					# This location is unreachable due to presence of a pre-consensus sequence
 					self.scoreMat.set_data(i,j,None)
@@ -749,7 +749,7 @@ class TreewiseSmithWaterman():
 				else:
 					found_new = false
 
-		# Go through current alignments and pull out those with sufficient score to return
+		# Go through current alignments and pull stdout those with sufficient score to return
 		select_alignments = []
 		for alignment in self._alignments:
 			if alignment.score >= min_score:
@@ -759,7 +759,7 @@ class TreewiseSmithWaterman():
 		return select_alignments
 
 # Helper-function to write a string
-def out(s):
+def stdout(s):
 	sys.stdout.write(s+'\n')
 
 # Maps the aligned two bases against a user-selected substitution matrix
