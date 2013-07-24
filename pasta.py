@@ -88,7 +88,7 @@ class MultipleSequenceDriver():
         s0 = queries[0]
         s1 = queries[1]
         # pass them both into the tree--based Needleman--Wunsch algorithm.
-        nw = core.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=core.default_nodetypes())
+        nw = core.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=core.default_nodetypes)
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
         consensus = TreeLogicFactory(str1=first_align, 
@@ -98,7 +98,7 @@ class MultipleSequenceDriver():
             curr_seq = queries[i]
             nw = core.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
-                                         nodeTypes=core.default_nodetypes())
+                                         nodeTypes=core.default_nodetypes)
             align_sA, align_sB = nw.prettify()[1]
             consensus = TreeLogicFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
@@ -125,7 +125,7 @@ class MultipleSequenceDriver():
             # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
             nw = core.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
                                     costs=self.costs, submat=self.submat, 
-                                    nodeTypes=core.default_nodetypes(),consensus=2)
+                                    nodeTypes=core.default_nodetypes,consensus=2)
             # sequence sA is the query alignment while sB is the pre-consensus.
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
@@ -264,7 +264,7 @@ class PairwiseDriver():
         self.num_workers = input_state.get_args()['n']
         # Get node type lists
         if input_state.get_args()['nodeTypes'] is None:
-            self.nodeTypes = core.default_nodetypes()
+            self.nodeTypes = core.default_nodetypes
         else:
             self.nodeTypes = core.parse_nodetypes(input_state.get_args()['nodeTypes'])
 
