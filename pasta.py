@@ -12,10 +12,6 @@ from tree import TreeIndexLogic, TreeLogicFactory
 
 version = 0.1
 
-# Helper-function to write a string
-def stdout(s):
-    sys.stdout.write(s+'\n')
-
 class MultipleSequenceDriver():
     ''' 
     A high-level class to perform multiple sequence alignment.
@@ -43,7 +39,7 @@ class MultipleSequenceDriver():
             # Randomize the order of the sequences
             shuffle(queries)
 
-        stdout('--- Multiple sequence alignment mode ---')
+        print('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
         s0 = queries[0]
         s1 = queries[1]
@@ -209,8 +205,7 @@ class PairwiseDriver():
         self.costs = input_state.get_penalties() # set costs to core
         self.submat = input_state.get_submatrix() # set submatrix to core
         self.num_complete = 0# len(self.priorCompletions) # for how many sequences have been aligned
-        #stdout(str(self.num_complete)+" complete of "+str(len(targets)))
-
+        
         # Set openMode to append if some targets have already been run and completed
         if self.num_complete > 0:
             openMode = 'a'
@@ -231,7 +226,7 @@ class PairwiseDriver():
 
     # Initialize the core given query sequences and input arguments
     def start(self):
-        stdout('--- Pairwise alignment mode ---')
+        print('--- Pairwise alignment mode ---')
         executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
         try:
             for target in self.targets: # per fasta, create a concurrent job, f.
@@ -239,7 +234,7 @@ class PairwiseDriver():
                 f.add_done_callback(self._callback)
             executor.shutdown()
             self.close_output_buffers()
-            stdout('** Analysis Complete **')
+            print('--- Analysis Complete ---')
         except KeyboardInterrupt:
             executor.shutdown()
 
@@ -277,9 +272,9 @@ class PairwiseDriver():
                     self.alignhandle.write(out_str + '\n')
                     self.alignhandle.flush()
         self.num_complete += 1
-        stdout(' --> ' + target + ' [OK] '+str(self.num_complete) +
-            ' of '+ str(len(self.targets))) # print-stdout progress
-
+        print(' --> ' + target + ' [OK] '+str(self.num_complete) +
+            ' of '+ str(len(self.targets))) # print progress
+        
 # Maps each query sequence against a set of targets (itself)
 def _aligner(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
@@ -314,4 +309,4 @@ if __name__ == '__main__':
             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
             consensus_fact.build_consensus()
     except (IOError, KeyboardInterrupt, IndexError) as e:
-        stdout(str(e)+'\n')
+        print(str(e)+'\n')
