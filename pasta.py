@@ -5,7 +5,7 @@ import core
 import math
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
-from model import NeuriteSequence
+from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
 from core import stdout

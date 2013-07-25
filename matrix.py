@@ -42,6 +42,231 @@ class AbstractMatrix():
         """
         return len(set([len(row) for row in self.data])) == 1
 
+class ContingencyMatrix(AbstractMatrix):
+    """
+    A Contingency Matrix (CM) is a model for quantifying categorical
+    variables. Each Contingency Matrix is a 2x2 matrix, representing
+    counts between two groups (A and B).
+    """
+
+    def __init__(self, node, group_a, group_b):
+        """
+        Creates a Contingency Matrix instances representing counts given
+        counts within groups A and B.
+
+        @param node: Domain of interest.
+        """
+        super(ContingencyMatrix, self).__init__(2, 2) # 2x2 matrix
+        self.node = node
+
+    def ipf(self):
+        """
+        Compute Iterative Proportional Fitting (IPF) on a contingency
+        matrix in-place. Given a matrix with cells f(0, 0), f(1, 0), f(0, 1)
+        and f(1, 1), cells f(0, 0) and f(1, 1) will have the same value, x.
+        Values for f(1, 0) and f(0, 1) will however be (N/2) - x.
+        """
+        top = self.size * math.sqrt(self.get_g_x() * self.get_not_g_not_x())
+        bottom = 2 * (math.sqrt(self.get_not_g_not_x() * self.get_g_x()) +
+                      math.sqrt(self.get_not_g_x() * self.get_g_not_x()))
+        self.data[1][1] = self.data[0][0] = top / bottom
+
+        # Next, compute IPF for f(0,1) and f(1,0)
+        diag_value = (self.size / 2) - self.get_g_x()
+        self.data[1][0] = self.data[0][1] = diag_value
+        self.calculate_size()
+
+    ##########################################################################
+    ###             Contingency Matrix value-access behaviors              ###
+    ##########################################################################
+    def get_g(self, to_prob=False):
+        """
+        Compute total probability or summation for group G (i.e. n(G)).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of group G.
+        """
+        val = float(self.__group_a.graph.total_count)
+        return (val / self.size) if to_prob else val
+
+    def get_not_g(self, to_prob=False):
+        """
+        Compute total probability or summation for not-group G (i.e n(!G)).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of not-group G.
+        """
+        count = float(self.__group_b.graph.total_count)
+        return (count / self.size) if to_prob else count
+
+    def get_g_x(self, to_prob=False):
+        """
+        Compute probability or count of variable X in group G (i.e. n(X, G).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of X in group G.
+        """
+        val = float(self.data[0][0])
+        return (val / self.size) if to_prob else val
+
+    def get_not_g_not_x(self, to_prob=False):
+        """
+        Compute probability or count of variable not-X in not-group G
+        (i.e. n(!X, G).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of not-X in not-group G.
+        """
+        val = float(self.data[1][1])
+        return (val / self.size) if to_prob else val
+
+    def get_not_g_x(self, to_prob=False):
+        """
+        Compute probability or count of variable X in not-group G
+        (i.e. n(X, !G).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of X in not-group G.
+        """
+        val = float(self.data[0][1])
+        return (val / self.size) if to_prob else val
+
+    def get_g_not_x(self, to_prob=False):
+        """
+        Compute probability or count of variable not-X in group G
+        (i.e. n(!X, G)).
+
+        @param to_prob: Output probability or raw count boolean.
+        @return: Numeric representing abundance of !X in group G.
+        """
+        val = float(self.data[1][0])
+        return (val / self.size) if to_prob else val
+
+    def get_x(self, to_prob=False):
+        """
+        Compute probability or count of variable X across both groups
+        (i.e. n(X)).
+        
+        @param to_prob: Output probability or raw count boolean.
+        @return: Abundance of X in groups G and !G.
+        """
+        val = float(self.data[0][0] + self.data[0][1])
+        return (val / self.size) if to_prob else val
+
+    def get_not_x(self, to_prob=False):
+        """
+        Compute probability or count of variable not-X across both groups
+        (i.e. n(!X)).
+        
+        @param to_prob:  Output probability or raw count boolean.
+        @return: Abundance of not-X in groups G and !G.
+        """
+        val = float(self.data[1][0] + self.data[1][1])
+        return (val / self.size) if to_prob else val
+
+    ##########################################################################
+    ###                           Statistical Metrics                      ###
+    ##########################################################################
+    def get_lift(self):
+        """
+        Compute Lift (LI) metric.
+        @return: Measure of over-representation
+        """
+        numerator = self.get_g_x(to_prob=True)  # P(AB)
+        denominator = self.get_x(to_prob=True) * self.get_g(
+            to_prob=True)  # {P(A) * P(B)}
+        return numerator / denominator
+
+    def get_cosine(self):
+        """
+        Compute Cosine (CO) metric.
+        @return: Measure of over-representation
+        """
+        top = self.get_g_x(to_prob=True)
+        bottom = math.sqrt(self.get_x(to_prob=True) * self.get_g(to_prob=True))
+        return top / bottom
+
+    def get_jaccard(self):
+        """
+        Compute Jaccard (JAC) metric.
+        @return: Measure of over-representation.
+        """
+        return self.get_g_x(True) / (
+            self.get_x(True) + self.get_g(True) - self.get_g_x(True))
+
+    def get_laplace(self):
+        """
+        Compute Laplace (LP) correction.
+        @return: Measure of over-representation.
+        """
+        return (self.get_g_x() + 1) / (self.get_x() + 2)
+
+    def get_confidence(self):
+        """
+        Compute Confidence (CF) metric.
+        @return: Measure of over-representation.
+        """
+        return self.get_g_x(to_prob=True) / self.get_x(to_prob=True)
+
+    def get_phi_coefficient(self):
+        """
+        Compute Phi coefficient (PHI).
+        @return: Measure of over-representation.
+        """
+        top = self.get_g_x(True) - (self.get_x(True) * self.get_g(True))
+        bottom = math.sqrt(
+            self.get_x(True) * self.get_g(True) * (1 - self.get_x(True)) * (
+                1 - self.get_g(True)))
+        return top / bottom
+
+    def get_kappa_coefficient(self):
+        """
+        Compute Kappa coefficient (K).
+        @return: Measure of over-representation.
+        """
+        top = self.get_g_x(True) + self.get_not_g_not_x(True) - self.get_x(
+            True) * self.get_g(True) - self.get_not_x(True) * \
+            self.get_not_g(True)
+        bottom = 1 - self.get_x(True) * self.get_g(True) - self.get_not_x(
+            True) * self.get_not_g(True)
+        return top / bottom
+
+    def get_hypergeometric_prob(self):
+        """
+        Computes hypergeometric distribution given matrix.
+        @return: p-value
+        """
+        x = self.get_g_x()
+        N = self.size
+        M = self.get_x()
+        n = self.get_g_x()
+        m_give_x = combinatorial(M, x)
+        nm_give_nk = combinatorial(N - M, n - x)
+        n_give_n = combinatorial(N, n)
+        return (m_give_x * nm_give_nk) / n_give_n
+
+    def measures(self):
+        """
+        For each Contingency Matrix, a pre-compiled dictionary of metrics
+        will compute its TFBS abundance. This dictionary is such that the
+        key and value is the metric and resultant output, respectively.
+
+        :return: dictionary of metrics and its respective output.
+        """
+        measures = collections.OrderedDict()
+        measures['LP'] = self.get_laplace()
+        measures['CO'] = self.get_cosine()
+        measures['JAC'] = self.get_jaccard()
+        measures['LI'] = self.get_lift()
+        measures['CF'] = self.get_confidence()
+        measures['K'] = self.get_kappa_coefficient()
+        measures['PHI'] = self.get_phi_coefficient()
+        measures['p-value'] = self.get_hypergeometric_prob()
+        measures['n(' + self.__group_a.name + '_baseline)'] = self.get_g_x()
+        measures['n(' + self.__group_b.name + '_query)'] = \
+            self.get_not_g_x()
+        return measures
+
 class StateMatrix(AbstractMatrix):
     ''' 
     A StateMatrix is your traditional multi-dimensional array whereby its 
