@@ -40,3 +40,10 @@ class NeuriteSequence():
     
     def __repr__(self):
         return self.__str__()
+    
+class MultipleSequenceWrapper():
+    ''' 
+    Encapsulates multiple sequence alignments so they can be parsed
+    and analyzed using domain-analysis mode.
+    '''
+    pass

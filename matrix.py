@@ -3,16 +3,52 @@ A high-level class used for modeling various StateMatrix data-structures.
 @author: Todd Gillette and Parsa Hosseini
 '''
 
-class StateMatrix():
+class AbstractMatrix():
+    """
+    A high-level matrix with capability of setting row and column names and
+    dimensional information.
+    """
+
+    def __init__(self, nrows, ncols):
+        """
+        An abstract matrix capable of having row and column data points.
+        """
+        self.nrows = nrows
+        self.ncols = ncols
+        self.data = [[0.0 for _ in range(self.ncols)] 
+                     for _ in range(self.nrows)]
+
+    def get_width(self):
+        """
+        Retrieve how many columns there are in the current matrix.
+        @return: matrix width (number of columns).
+        """
+        if len(self.data) == 0:
+            return 0
+        else:
+            return len(self.data[0])
+
+    def get_height(self):
+        """
+        Retrieve the number of rows comprising the current matrix.
+        @return: matrix height (number of rows).
+        """
+        return len(self.data)
+
+    def is_square(self):
+        """
+        Determines if all rows in the matrix are the same length.
+        @return: boolean.
+        """
+        return len(set([len(row) for row in self.data])) == 1
+
+class StateMatrix(AbstractMatrix):
     ''' 
     A StateMatrix is your traditional multi-dimensional array whereby its 
     contents are indexed by respective integers.
     '''
     def __init__(self, nrows, ncols):
-        self.nrows = nrows
-        self.ncols = ncols
-        self.data = [[0.0 for _ in range(self.ncols)] 
-                                for _ in range(self.nrows)]
+        super(StateMatrix, self).__init__(nrows, ncols)
         self.state = [[0.0 for _ in range(self.ncols)] 
                                 for _ in range(self.nrows)]
         self.transpose = TranspositionFactory(self)

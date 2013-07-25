@@ -4,7 +4,7 @@ import platform
 from core import stdout
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
-from model import NeuriteSequence
+from sequence import NeuriteSequence
 
 
 # Validates user-provided command-line arguments
