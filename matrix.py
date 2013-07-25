@@ -276,7 +276,7 @@ class StateMatrix(AbstractMatrix):
         super(StateMatrix, self).__init__(nrows, ncols)
         self.state = [[0.0 for _ in range(self.ncols)] 
                                 for _ in range(self.nrows)]
-        self.transpose = TranspositionFactory(self)
+        self.transpose = MatrixTranspositionFactory(self)
         self.T = self.transpose
 
     def get_data(self,i,j):
@@ -303,7 +303,7 @@ class StateMatrix(AbstractMatrix):
         for rownum in range(self.nrows):
             print(self.data[rownum], self._state[rownum])
 
-class TranspositionFactory():
+class MatrixTranspositionFactory():
     '''
     Works with StateMatrix classes to provide low cost matrix transposition.
     '''

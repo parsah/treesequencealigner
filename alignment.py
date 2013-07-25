@@ -759,9 +759,6 @@ class LocalAlignmentWrapper():
 # 		self.min_score = min_score
 # 		return select_alignments
 
-# Helper-function to write a string
-def stdout(s):
-	sys.stdout.write(s+'\n')
 
 # Maps the aligned two bases against a user-selected substitution matrix
 def get_score(cA, cB, submatrix):

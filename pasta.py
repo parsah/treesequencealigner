@@ -1,60 +1,20 @@
 import concurrent.futures
 import sys
 import os
-import core
+import alignment
 import math
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
-from core import stdout
+from tree import TreeIndexLogic, TreeLogicFactory
 
 version = 0.1
 
-class TreeIndexLogic():
-    ''' 
-    A class which captures tree-specific logic given two characters.
-    @param char1: First character
-    @param char2: Second character
-    '''
-    def __init__(self, char1, char2):
-        self.char1 = char1
-        self.char2 = char2
-        
-    def get(self):
-        if (self.char1 == 'A' and self.char2 == 'C') or (self.char2 == 'A' and self.char1 == 'C'):
-            return 'A'
-        if (self.char1 == 'A' and self.char2 == '-') or (self.char2 == 'A' and self.char1 == '-'):
-            return 'A'
-        if (self.char1 == 'T' and self.char2 == '-') or (self.char2 == 'T' and self.char1 == '-'):
-            return 'T'
-        if (self.char1 == 'C' and self.char2 == '-') or (self.char2 == 'C' and self.char1 == '-'):
-            return 'C'
-
-class TreeLogicFactory():
-    '''
-    Parses and processes the consensus string to ultimately yield a single
-    string which encapsulate the pairwise alignment.
-    '''
-    def __init__(self, str1, str2):
-        self.str1 = str1
-        self.str2 = str2
-        
-    def get_alignment(self):
-        ''' 
-        Simple function to merge two strings and produce a consensus.
-        @return: NeuriteSequence object representing the consensus sequence.
-        '''
-        consensus = ''
-        for idx, char1 in enumerate(self.str1):
-            char2 = self.str2[idx]
-            if char1 == self.str2[idx]:
-                consensus += char1
-            else:
-                # Apply neuronal logic given two specific characters.
-                consensus += TreeIndexLogic(char1, char2).get()
-        return NeuriteSequence(name='alignment', sequence=consensus)
+# Helper-function to write a string
+def stdout(s):
+    sys.stdout.write(s+'\n')
 
 class MultipleSequenceDriver():
     ''' 
@@ -88,7 +48,8 @@ class MultipleSequenceDriver():
         s0 = queries[0]
         s1 = queries[1]
         # pass them both into the tree--based Needleman--Wunsch algorithm.
-        nw = core.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, nodeTypes=core.default_nodetypes)
+        nw = alignment.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, 
+                                       nodeTypes=alignment.default_nodetypes)
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
         consensus = TreeLogicFactory(str1=first_align, 
@@ -96,9 +57,9 @@ class MultipleSequenceDriver():
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(queries)):
             curr_seq = queries[i]
-            nw = core.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
+            nw = alignment.NeedlemanWunsch(s1=consensus, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
-                                         nodeTypes=core.default_nodetypes)
+                                         nodeTypes=alignment.default_nodetypes)
             align_sA, align_sB = nw.prettify()[1]
             consensus = TreeLogicFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
@@ -123,9 +84,9 @@ class MultipleSequenceDriver():
         name_lengths = []
         for curr_seq in self.queries:
             # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
-            nw = core.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
+            nw = alignment.NeedlemanWunsch(s1=curr_seq, s2=self.preconsensus, 
                                     costs=self.costs, submat=self.submat, 
-                                    nodeTypes=core.default_nodetypes,consensus=2)
+                                    nodeTypes=alignment.default_nodetypes,consensus=2)
             # sequence sA is the query alignment while sB is the pre-consensus.
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
@@ -264,9 +225,9 @@ class PairwiseDriver():
         self.num_workers = input_state.get_args()['n']
         # Get node type lists
         if input_state.get_args()['nodeTypes'] is None:
-            self.nodeTypes = core.default_nodetypes
+            self.nodeTypes = alignment.default_nodetypes
         else:
-            self.nodeTypes = core.parse_nodetypes(input_state.get_args()['nodeTypes'])
+            self.nodeTypes = alignment.parse_nodetypes(input_state.get_args()['nodeTypes'])
 
     # Initialize the core given query sequences and input arguments
     def start(self):
@@ -324,7 +285,7 @@ def _aligner(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
     # get the gap and substitution matrix
     for query in queries:
-        NW = core.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
+        NW = alignment.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
         output = NW.prettify()
         results.append(output)
     return target.name, results
@@ -345,12 +306,7 @@ if __name__ == '__main__':
         if args['mode'] == 'local':
             driver = PairwiseDriver(targets, queries, input_state)
             driver.start() # start only pairwise alignment
-            # TODO there is no 'consensus' mode; it is part of msa mode. 
-#         elif args['mode'] == 'consensus' and args['a'] is not None:
-#             alignments = parse_alignments(args['a'])
-#             consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
-#             consensus_fact.build_consensus()
-        else: # else, start multiple-sequence alignment (MSA)
+        elif args['mode'] == 'msa': # start multiple-sequence alignment (MSA)
             driver = MultipleSequenceDriver(queries, input_state)
             driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus

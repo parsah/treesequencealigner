@@ -1,11 +1,10 @@
 
 import argparse
 import platform
-from core import stdout
+from pasta import stdout
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from sequence import NeuriteSequence
-
 
 # Validates user-provided command-line arguments
 class ArgumentValidator():
