@@ -1,5 +1,16 @@
 import sys
 from matrix import StateMatrix, DirectionalMatrixWrapper
+import concurrent.futures
+import sys
+import os
+import pairwise
+import math
+from Bio.SubsMat import MatrixInfo
+from Bio import SeqIO
+from sequence import NeuriteSequence
+from collections import Counter
+from random import shuffle
+from tree import TreeIndexLogic, TreeLogicFactory
 
 default_nodetypes = {'A':'A','C':'C','T':'T'}
 
@@ -41,6 +52,99 @@ def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
 			if (len(CostStack) > 0):
 				CostStack[-1] += currCost
 	return taDict
+
+
+class PairwiseDriver():
+    '''
+    Executes the pairwise application
+    '''
+    def __init__(self, targets, queries, input_state):
+        self.targets = targets # core operates given targets and queries
+        self.queries = queries
+        self.costs = input_state.get_penalties() # set costs to core
+        self.submat = input_state.get_submatrix() # set submatrix to core
+        self.num_complete = 0 # len(self.priorCompletions) # for how many sequences have been aligned
+        
+        # Set openMode to append if some targets have already been run and completed
+        if self.num_complete > 0:
+            openMode = 'a'
+        else:
+            openMode = 'w'
+            
+        self.scorehandle = open(input_state.get_args()['o'], openMode) # output file
+        self.alignhandle = None
+        if input_state.get_args()['a'] is not None:
+            self.alignhandle = open(input_state.get_args()['a'], openMode) # alignments file
+            
+        self.num_workers = input_state.get_args()['n']
+        # Get node type lists
+        if input_state.get_args()['nodeTypes'] is None:
+            self.nodeTypes = pairwise.default_nodetypes
+        else:
+            self.nodeTypes = pairwise.parse_nodetypes(input_state.get_args()['nodeTypes'])
+
+    # Initialize the core given query sequences and input arguments
+    def start(self):
+        print('--- Pairwise alignment mode ---')
+        executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
+        try:
+            for target in self.targets: # per fasta, create a concurrent job, f.
+                f = executor.submit(_aligner, target, 
+                                    self.queries, self.costs, 
+                                    self.submat, self.nodeTypes)
+                f.add_done_callback(self._callback)
+            executor.shutdown()
+            self.close_output_buffers()
+            print('--- Analysis Complete ---')
+        except KeyboardInterrupt:
+            executor.shutdown()
+
+    # Close all I/O buffers such as file handles
+    def close_output_buffers(self):
+        if self.alignhandle is not None:
+            self.alignhandle.close()
+        self.scorehandle.close()
+
+    # Get the headers, i.e. top-most row for the score matrix
+    def _create_header(self, results):
+        h = '\t' +'\t'.join([h[-1] for h in results])
+        self.scorehandle.write(h + '\n')
+        self.scorehandle.flush()
+        
+    # Callback function once a thread is complete
+    def _callback(self, return_val):
+        res = return_val.result() # get result once thread is complete
+        target, results = res
+        results = sorted(results, key=lambda x: x[-1]) # sort by query (last item)
+        if self.num_complete == 0: # for the first result, write headers
+            self._create_header(results)
+
+        # save scores to the alignment matrix
+        scores = '\t'.join([str(s[0]) for s in results])
+        self.scorehandle.write(target + '\t' + scores + '\n')
+        self.scorehandle.flush()
+
+        # also save actual alignment string
+        if self.alignhandle is not None:
+            for r in results:
+                if r[1] is not None:
+                    align_target, align_query = r[1]
+                    out_str = target + '\t' + r[-1] +'\t'+ align_target +'\t'+ align_query
+                    self.alignhandle.write(out_str + '\n')
+                    self.alignhandle.flush()
+        self.num_complete += 1
+        print(' --> ' + target + ' [OK] '+str(self.num_complete) +
+            ' of '+ str(len(self.targets))) # print progress
+        
+# Maps each query sequence against a set of targets (itself)
+def _aligner(target, queries, costs, submat, nodeTypes):
+    results = [] # K => target, V => aligned queries 
+    # get the gap and substitution matrix
+    for query in queries:
+        NW = pairwise.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
+        output = NW.prettify()
+        results.append(output)
+    return target.name, results
 
 # Implementation of global alignment - Needleman-Wunsch
 class NeedlemanWunsch():
@@ -758,7 +862,6 @@ class LocalAlignmentWrapper():
 # 				
 # 		self.min_score = min_score
 # 		return select_alignments
-
 
 # Maps the aligned two bases against a user-selected substitution matrix
 def get_score(cA, cB, submatrix):

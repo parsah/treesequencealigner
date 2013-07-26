@@ -31,7 +31,7 @@ class ArgumentValidator():
     # Checks user-provided arguments are valid
     def check_args(self):
         return all([self.test_num_workers(), self.test_mutual_matrices(),
-                self.test_valid_matrix(),self.test_threshold_type()])
+                self.test_valid_matrix(), self.test_threshold()])
 
     # Test either a custom matrix or in-built matrix is selected
     def test_mutual_matrices(self):
@@ -56,12 +56,20 @@ class ArgumentValidator():
             return True
         else:
             raise IOError('>= 1 worker processes must be provided')
-
-    def test_threshold_type(self):
-        if self.args['threshold_type'] != 'percent' and self.args['threshold_type'] != 'sqrt':
-            raise IOError("threshold_type must be \'percent\' or \'sqrt\'")
-        else:
+    
+    # Test that a valid consensus threshold is provided
+    def test_threshold(self):
+        if self.args['thresh'] >= 0:
             return True
+        else:
+            raise IOError('Consensus threshold (thresh) must be positive')
+        
+        # test not necessary because the 'choices' arg limits acceptable options.
+#     def test_threshold_type(self):
+#         if self.args['threshold_type'] != 'percent' and self.args['threshold_type'] != 'sqrt':
+#             raise IOError("threshold_type must be \'percent\' or \'sqrt\'")
+#         else:
+#             return True
 
 # Helper-class to parse input arguments
 class CommandLineParser():
@@ -74,8 +82,9 @@ class CommandLineParser():
     # Create parameters to be used throughout the application
     def _init_params(self):
         param_aln = self.parser.add_argument_group('Required alignment parameters')
-        param_local = self.parser.add_argument_group('Pairwise parameters')
+        param_local = self.parser.add_argument_group('Pairwise (local) parameters')
         param_msa = self.parser.add_argument_group('MSA parameters')
+        param_domain = self.parser.add_argument_group('Domain parameters')
         param_opts = self.parser.add_argument_group('Optional parameters')
 
         # Specify required arguments
@@ -101,6 +110,20 @@ class CommandLineParser():
                     help='Threshold type {percent, sqrt} [percent]')
         param_msa.add_argument('-build', metavar='FILE', default='msa.bin', 
                                type=str, help='MSA output, i.e. build [./msa.bin]')
+        
+        # Domain-specific parameters
+        param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 
+                                  help='Contrast query and baseline domains [na]')
+        param_domain.add_argument('-min-d', metavar='INT', default=5, type=int, 
+                                  help='Minimum domain length; characters [5]')
+        param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
+                                  help='Maximum #/gaps in domain [3]')
+        param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
+                                  help='Sliding window length; characters [7]')
+        param_domain.add_argument('-l', metavar='FLOAT', default=0.4, type=float, 
+                                  help='LaPlace correction cutoff [0.4]')
+        param_domain.add_argument('--ipf', action='store_const', const=True, 
+                                  default=False, help = 'IPF normalize [false]')
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
