@@ -81,25 +81,29 @@ class CommandLineParser():
         # Specify required arguments
         param_aln.add_argument('-f', metavar='FILE',
                     help='Input FASTA file [na]')
-        param_aln.add_argument('--mode', metavar='MODE',
+        param_aln.add_argument('-mode', metavar='MODE',
                     choices=['local', 'msa', 'domain'],
                     help='Analysis mode {local, msa, domain} [msa]')
-        param_aln.add_argument('--matrix', metavar='STR', default=None,
+        param_aln.add_argument('-matrix', metavar='STR', default=None,
                     help='Matrix; see Biopython MatrixInfo [na]')
         
         # Local-alignment specific parameters
-        param_local.add_argument('--gap', metavar='INT', default=-8, type=int,
+        param_local.add_argument('-gap', metavar='INT', default=-8, type=int,
                     help='Gap extension penalty [-8]')
-        param_local.add_argument('--gapopen', metavar='INT', default=0, type=int,
-                    help='Gap open penalty (in addition to, not instead of, extension penalty) [0]')
+        param_local.add_argument('-gapopen', metavar='INT', default=0, type=int,
+                    help='Gap open penalty [0]')
         
         # MSA specific parameters
         param_msa.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
-        param_msa.add_argument('--threshold_type', metavar='STR', default='percent', 
+        param_msa.add_argument('-threshold_type', metavar='STR', default='percent', 
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
-        param_msa.add_argument('--randomOrder', action='store_const', const=True, default=False)
+        param_msa.add_argument('-build', metavar='FILE', default='msa.bin', 
+                               type=str, help='MSA output, i.e. build [./msa.bin]')
+        param_msa.add_argument('--randomOrder', action='store_const', 
+                               const=True, default=False,
+                               help='Shuffle input sequences [off]')
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
