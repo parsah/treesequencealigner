@@ -94,16 +94,13 @@ class CommandLineParser():
                     help='Gap open penalty [0]')
         
         # MSA specific parameters
-        param_msa.add_argument('-t', metavar='FLOAT', default=0.7, type=float, 
+        param_msa.add_argument('-thresh', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
         param_msa.add_argument('-threshold_type', metavar='STR', default='percent', 
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
         param_msa.add_argument('-build', metavar='FILE', default='msa.bin', 
                                type=str, help='MSA output, i.e. build [./msa.bin]')
-        param_msa.add_argument('--randomOrder', action='store_const', 
-                               const=True, default=False,
-                               help='Shuffle input sequences [off]')
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,

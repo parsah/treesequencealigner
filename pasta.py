@@ -16,13 +16,12 @@ class MultipleSequenceDriver():
     ''' 
     A high-level class to perform multiple sequence alignment.
     '''
-    def __init__(self, queries, input_state, randomize=False):
+    def __init__(self, queries, input_state):
         self.queries = queries
         self.costs = input_state.get_penalties() # set costs to core
         self.submat = input_state.get_submatrix() # set submatrix to core
         self.preconsensus = None # initially, no pre-consensus exists
         self.alignment_file = input_state.alignment_file
-        self.random_order = randomize
 
     def build_preconsensus(self):
         ''' 
@@ -32,10 +31,6 @@ class MultipleSequenceDriver():
         '''
         
         queries = self.queries
-        if self.random_order:
-            # Randomize the order of the sequences
-            shuffle(queries)
-
         print('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
         s0 = queries[0]
@@ -299,11 +294,12 @@ if __name__ == '__main__':
             driver = PairwiseDriver(targets, queries, input_state)
             driver.start() # start only pairwise alignment
         elif args['mode'] == 'msa': # start multiple-sequence alignment (MSA)
-            driver = MultipleSequenceDriver(queries, input_state,randomize=args['randomOrder'])
+            driver = MultipleSequenceDriver(queries, input_state)
             driver.build_preconsensus()
             # map queries back onto consensus and build a filtered consensus
             alignments = driver.align()
-            consensus_fact = ConsensusFilterFactory(alignments, args['t'], args['threshold_type'])
+            consensus_fact = ConsensusFilterFactory(alignments, args['thresh'], 
+                                                    args['threshold_type'])
             consensus_fact.build_consensus()
     except (IOError, KeyboardInterrupt, IndexError) as e:
         print(str(e)+'\n')
