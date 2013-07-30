@@ -1,5 +1,17 @@
 version = 0.1
 
+def run_local(targets, queries, input_state):
+    driver = PairwiseDriver(targets, queries, input_state)
+    driver.start() # start only pairwise alignment
+
+def run_msa(queries, input_state):
+    driver = MultipleSequenceDriver(queries, input_state)
+    driver.build_preconsensus()
+    driver.align() # align sequences and build resultant consensus
+    consensus_fact = ConsensusFilterFactory(driver.alns, args['thresh'], args['type'])
+    consensus_fact.build_consensus()
+    consensus_fact.write(fname=args['build']) # write analysis
+    
 if __name__ == '__main__':
     try:
         from parameter import ArgumentValidator, CommandLineParser, InputWrapperState
@@ -18,15 +30,9 @@ if __name__ == '__main__':
             queries = input_state.parse_fasta(input_state.fname2)
         
         if args['mode'] == 'local':
-            driver = PairwiseDriver(targets, queries, input_state)
-            driver.start() # start only pairwise alignment
+            run_local(targets, queries, input_state)
         elif args['mode'] == 'msa': # start multiple-sequence alignment (MSA)
-            driver = MultipleSequenceDriver(queries, input_state)
-            driver.build_preconsensus()
-            # map queries back onto consensus and build a filtered consensus
-            alignments = driver.align()
-            consensus_fact = ConsensusFilterFactory(alignments, args['thresh'], 
-                                                    args['threshold_type'])
-            consensus_fact.build_consensus()
+            run_msa(queries, input_state)
+            
     except (IOError, KeyboardInterrupt, IndexError) as e:
         print(str(e)+'\n')

@@ -42,4 +42,4 @@ class TreeLogicFactory():
             else:
                 # Apply neuronal logic given two specific characters.
                 consensus += TreeIndexLogic(char1, char2).get()
-        return NeuriteSequence(name='alignment', sequence=consensus)
+        return NeuriteSequence(name='alignment', seq=consensus)

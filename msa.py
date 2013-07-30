@@ -1,5 +1,6 @@
 import pairwise
 import math
+import shelve # object persistance, i.e. for the MSA.
 from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
@@ -15,6 +16,7 @@ class MultipleSequenceDriver():
         self.submat = input_state.get_submatrix() # set submatrix to core
         self.preconsensus = None # initially, no pre-consensus exists
         self.alignment_file = input_state.alignment_file
+        self.alns = []
 
     def build_preconsensus(self):
         ''' 
@@ -24,7 +26,6 @@ class MultipleSequenceDriver():
         '''
         
         queries = self.queries
-        print('--- Multiple sequence alignment mode ---')
         # get the first two input sequences
         s0 = queries[0]
         s1 = queries[1]
@@ -61,7 +62,6 @@ class MultipleSequenceDriver():
         if self.alignment_file:
             align_handle = open(self.alignment_file, 'w')
             
-        alignments = [] # references alignments against the pre-consensus
         name_lengths = []
         for curr_seq in self.queries:
             # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
@@ -72,19 +72,16 @@ class MultipleSequenceDriver():
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
             align_sA, align_sB = nw.prettify()[1]
-            alignments.append(list(align_sA))
-            print(align_sA)
+            self.alns.append(align_sA)
             name_lengths.append(len(curr_seq.name))
-            
+        
         # Write alignments to file
         if self.alignment_file:
             total_space = max(12,max(name_lengths))+1
             align_handle.write(('Preconsensus'+' '*(total_space-12))+self.preconsensus.seq+'\n') # write header
             for index,curr_seq in enumerate(self.queries):
-                align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(alignments[index]))+'\n') # write header
+                align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(self.alns[index]))+'\n') # write header
             align_handle.close()
-            
-        return alignments # return the matrix of all alignments
 
 class ConsensusFilterFactory():
     ''' 
@@ -101,6 +98,7 @@ class ConsensusFilterFactory():
             self.threshold_count = threshold_ratio*len(alignments) # consensus threshold
         self.height = len(alignments) # number of entries comprising alignment
         self.width = len(alignments[0]) # all alignments are the same length
+        self.consensus = None # actual generated consensus sequence 
         
     def enumerate_column(self, num):
         '''
@@ -114,6 +112,18 @@ class ConsensusFilterFactory():
                     a_column.append(self.alignments[row_num][col_num])
         char_counts = dict(Counter(a_column))
         return char_counts
+    
+    def write(self, fname):
+        ''' 
+        Persistence for MSA alignment objects, namely their consensus sequence.
+        @param fname: Output filename
+        '''
+        db = shelve.open(fname)
+        db['is_build'] = True # flag to indicate successful persistence
+        db['consensus'] = self.consensus # save consensus sequence
+        db['aln'] = self.alignments # save alignments
+        db.close()
+        print('MSA analysis complete [ok]')
     
     def build_consensus(self):
         ''' 
@@ -170,6 +180,4 @@ class ConsensusFilterFactory():
                 elif char_counts['A'] + char_counts['C'] >= self.threshold_count:
                     consensus[col_num] = 'C' # There aren't enough A's, but there are enough characters
         
-        print()
-        print('consensus:')
-        print(''.join(consensus))
+        self.consensus = NeuriteSequence(name='consensus', seq=''.join(consensus))

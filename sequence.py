@@ -10,8 +10,8 @@ class NeuriteSequence():
     @param sequence: input sequence string.
     @param header: header for the respective sequence.
     '''
-    def __init__(self, name, sequence):
-        self.seq = sequence
+    def __init__(self, name, seq):
+        self.seq = seq
         self.name = name
         
     def get_length(self):
@@ -41,9 +41,9 @@ class NeuriteSequence():
     def __repr__(self):
         return self.__str__()
     
-class MultipleSequenceWrapper():
+class ConsensusSequenceWrapper():
     ''' 
-    Encapsulates multiple sequence alignments so they can be parsed
-    and analyzed using domain-analysis mode.
+    Encapsulates a consensus sequence so it can be parsed and analyzed using 
+    domain-analysis mode.
     '''
     pass

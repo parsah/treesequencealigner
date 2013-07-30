@@ -14,16 +14,13 @@ class ArgumentValidator():
 
     # Check python 3.0+ is available
     def check_python(self):
-        if platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
-            print('Python v. '+ str(platform.python_version()) + ' found [OK]')
-        else:
+        if not platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
             raise RuntimeError('Python 3.0+ recommended')
 
     # BioPython must be installed
     def check_biopython(self):
         try:
             import Bio
-            print('BioPython v.' + Bio.__version__ + ' found [OK]')
         except ImportError:
             raise ImportError('Make sure BioPython is installed')
 
@@ -97,28 +94,27 @@ class CommandLineParser():
         # MSA specific parameters
         param_msa.add_argument('-thresh', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
-        param_msa.add_argument('-threshold_type', metavar='STR', default='percent', 
+        param_msa.add_argument('-type', metavar='STR', default='percent', 
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
-        param_msa.add_argument('-build', metavar='FILE', default='msa.bin', 
-                               type=str, help='MSA output, i.e. build [./msa.bin]')
+        param_msa.add_argument('-build', metavar='FILE', default='build', 
+                    type=str, help='Output file of consensus & alignments [./build]')
         
         # Domain-specific parameters
         param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 
-                                  help='Contrast query and baseline domains [na]')
-        param_domain.add_argument('-info', metavar='MSA', type=str, 
-                                  help='Print info. on a given MSA build [na]')
+                    help='Contrast query and baseline domains [na]')
+        param_domain.add_argument('-info', metavar='BUILD', type=str, 
+                    help='Print info. on a given MSA build [na]')
         param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
-                                  help='Maximum #/gaps in domain [3]')
+                    help='Maximum #/gaps in domain [3]')
         param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
-                                  help='Sliding window length; characters [7]')
+                    help='Sliding window length; characters [7]')
         param_domain.add_argument('-l', metavar='FLOAT', default=0.4, type=float, 
-                                  help='LaPlace correction cutoff [0.4]')
+                    help='LaPlace correction cutoff [0.4]')
         param_domain.add_argument('--ipf', action='store_const', const=True, 
-                                  default=False, help = 'IPF normalize [false]')
+                    default=False, help = 'IPF normalize [false]')
         param_domain.add_argument('--enumerate', action='store_const', const=True, 
-                                  default=False, 
-                                  help = 'Use many window & gap cutoffs [false]')
+                    default=False, help = 'Use many window & gap cutoffs [false]')
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
@@ -169,7 +165,7 @@ class InputWrapperState():
         parsed_fasta = list(SeqIO.parse(fname, 'fasta')) # easy indexing
         queries = [] # references list of parsed sequences
         for i in parsed_fasta: # cast as a neuronal sequence; easy modeling.
-            s = NeuriteSequence(sequence=str(i.seq), name=i.name)
+            s = NeuriteSequence(seq=str(i.seq), name=i.name)
             queries.append(s)
         print(str(len(queries)) + ' queries parsed [OK]')
         return queries # return set of fasta entries
