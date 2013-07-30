@@ -1,4 +1,3 @@
-
 import argparse
 import platform
 from Bio.SubsMat import MatrixInfo
@@ -63,13 +62,6 @@ class ArgumentValidator():
             return True
         else:
             raise IOError('Consensus threshold (thresh) must be positive')
-        
-        # test not necessary because the 'choices' arg limits acceptable options.
-#     def test_threshold_type(self):
-#         if self.args['threshold_type'] != 'percent' and self.args['threshold_type'] != 'sqrt':
-#             raise IOError("threshold_type must be \'percent\' or \'sqrt\'")
-#         else:
-#             return True
 
 # Helper-class to parse input arguments
 class CommandLineParser():
@@ -114,8 +106,8 @@ class CommandLineParser():
         # Domain-specific parameters
         param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 
                                   help='Contrast query and baseline domains [na]')
-        param_domain.add_argument('-min-d', metavar='INT', default=5, type=int, 
-                                  help='Minimum domain length; characters [5]')
+        param_domain.add_argument('-info', metavar='MSA', type=str, 
+                                  help='Print info. on a given MSA build [na]')
         param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
                                   help='Maximum #/gaps in domain [3]')
         param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
@@ -124,6 +116,9 @@ class CommandLineParser():
                                   help='LaPlace correction cutoff [0.4]')
         param_domain.add_argument('--ipf', action='store_const', const=True, 
                                   default=False, help = 'IPF normalize [false]')
+        param_domain.add_argument('--enumerate', action='store_const', const=True, 
+                                  default=False, 
+                                  help = 'Use many window & gap cutoffs [false]')
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,

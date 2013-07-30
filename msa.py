@@ -1,14 +1,9 @@
-import concurrent.futures
-import sys
-import os
 import pairwise
 import math
-from Bio.SubsMat import MatrixInfo
-from Bio import SeqIO
 from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
-from tree import TreeIndexLogic, TreeLogicFactory
+from tree import TreeLogicFactory
 
 class MultipleSequenceDriver():
     ''' 
@@ -118,11 +113,6 @@ class ConsensusFilterFactory():
                 if col_num == num:
                     a_column.append(self.alignments[row_num][col_num])
         char_counts = dict(Counter(a_column))
-        # set the counts as a fraction so it can be easily computed in relation
-        # to the threshold. EDIT: using count threshold instead to enable other types of thresholding
-        #for char in char_counts:
-        #    frac = char_counts[char]/float(self.height)
-        #    char_counts[char] = round(frac, 2)
         return char_counts
     
     def build_consensus(self):

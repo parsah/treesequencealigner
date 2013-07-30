@@ -1,16 +1,6 @@
-import sys
 from matrix import StateMatrix, DirectionalMatrixWrapper
 import concurrent.futures
-import sys
-import os
-import pairwise
-import math
-from Bio.SubsMat import MatrixInfo
-from Bio import SeqIO
-from sequence import NeuriteSequence
-from collections import Counter
 from random import shuffle
-from tree import TreeIndexLogic, TreeLogicFactory
 
 default_nodetypes = {'A':'A','C':'C','T':'T'}
 
@@ -56,7 +46,7 @@ def create_ta_dictionary(seq,nodeTypes,submatrix,gap_cost):
 
 class PairwiseDriver():
     '''
-    Executes the pairwise application
+    Executes the local alignment application
     '''
     def __init__(self, targets, queries, input_state):
         self.targets = targets # core operates given targets and queries
@@ -79,9 +69,9 @@ class PairwiseDriver():
         self.num_workers = input_state.get_args()['n']
         # Get node type lists
         if input_state.get_args()['nodeTypes'] is None:
-            self.nodeTypes = pairwise.default_nodetypes
+            self.nodeTypes = default_nodetypes
         else:
-            self.nodeTypes = pairwise.parse_nodetypes(input_state.get_args()['nodeTypes'])
+            self.nodeTypes = parse_nodetypes(input_state.get_args()['nodeTypes'])
 
     # Initialize the core given query sequences and input arguments
     def start(self):
@@ -141,7 +131,7 @@ def _aligner(target, queries, costs, submat, nodeTypes):
     results = [] # K => target, V => aligned queries 
     # get the gap and substitution matrix
     for query in queries:
-        NW = pairwise.NeedlemanWunsch(target, query, costs, submat, nodeTypes)
+        NW = NeedlemanWunsch(target, query, costs, submat, nodeTypes)
         output = NW.prettify()
         results.append(output)
     return target.name, results
