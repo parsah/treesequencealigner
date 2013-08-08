@@ -97,8 +97,8 @@ class CommandLineParser():
         param_msa.add_argument('-type', metavar='STR', default='percent', 
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
-        param_msa.add_argument('-build', metavar='FILE', default='build', 
-                    type=str, help='Output file of consensus & alignments [./build.xml]')
+        param_msa.add_argument('-build', metavar='FILE', default='alns.xml', 
+                    type=str, help='Output file of consensus & alignments [./alns.xml]')
         
         # Domain-specific parameters
         param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 

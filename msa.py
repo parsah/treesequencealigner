@@ -1,10 +1,10 @@
 import pairwise
 import math
-from xml.dom import minidom
 from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
 from tree import TreeLogicFactory
+from output import XMLBuildWriter
 
 class MultipleSequenceDriver():
     ''' 
@@ -119,36 +119,8 @@ class ConsensusFilterFactory():
         Saves MSA analysis as an XML file.
         @param fname: Output filename
         '''
-        outhandle = open(fname + '.xml', 'w') # creates output XML
-        doc = minidom.Document() # create XML structure object
-        root_elem = doc.createElement('msa') # root element
-        root_elem.setAttribute('software', 'pasta')
-        
-        # set the consensus node to the 
-        consensus_elem = doc.createElement('consensus')
-        text_consensus_thresh = doc.createTextNode(str(self.threshold))
-        consensus_seq = doc.createElement('sequence') # node for consensus sequence
-        text_consensus_seq = doc.createTextNode(self.consensus.get_sequence())
-        consensus_len = doc.createElement('length') # node for consensus length
-        text_consensus_len = doc.createTextNode(str(len(self.consensus.get_sequence())))
-        consensus_thresh = doc.createElement('threshold') # node for consensus threshold
-        text_consensus_len = doc.createTextNode(str(self.threshold_count))
-        
-        # append element textual information to the respective element
-        consensus_seq.appendChild(text_consensus_seq)
-        consensus_len.appendChild(text_consensus_len)
-        consensus_thresh.appendChild(text_consensus_thresh)
-        consensus_elem.appendChild(consensus_seq)
-        consensus_elem.appendChild(consensus_len)
-        consensus_elem.appendChild(consensus_thresh)
-        
-        root_elem.appendChild(consensus_elem)
-        doc.appendChild(root_elem) # add root element to the document
-        doc.writexml(outhandle,
-               addindent="  ",
-               newl='\n')
-        outhandle.close()
-
+        w = XMLBuildWriter(fname, self)
+        w.write() # write the XML data-structure to the disk
     
     def build_consensus(self):
         ''' 
