@@ -1,6 +1,6 @@
 import pairwise
 import math
-import shelve # object persistance, i.e. for the MSA.
+from xml.dom import minidom
 from sequence import NeuriteSequence
 from collections import Counter
 from random import shuffle
@@ -92,6 +92,7 @@ class ConsensusFilterFactory():
     
     def __init__(self, alignments, threshold_ratio, threshold_type):
         self.alignments = alignments # matrix representing alignments
+        self.threshold = threshold_ratio
         if threshold_type == 'sqrt':
             self.threshold_count = threshold_ratio*math.sqrt(len(alignments)) # consensus threshold
         else: # Default to percent
@@ -115,15 +116,39 @@ class ConsensusFilterFactory():
     
     def write(self, fname):
         ''' 
-        Persistence for MSA alignment objects, namely their consensus sequence.
+        Saves MSA analysis as an XML file.
         @param fname: Output filename
         '''
-        db = shelve.open(fname)
-        db['is_build'] = True # flag to indicate successful persistence
-        db['consensus'] = self.consensus # save consensus sequence
-        db['aln'] = self.alignments # save alignments
-        db.close()
-        print('MSA analysis complete [ok]')
+        outhandle = open(fname + '.xml', 'w') # creates output XML
+        doc = minidom.Document() # create XML structure object
+        root_elem = doc.createElement('msa') # root element
+        root_elem.setAttribute('software', 'pasta')
+        
+        # set the consensus node to the 
+        consensus_elem = doc.createElement('consensus')
+        text_consensus_thresh = doc.createTextNode(str(self.threshold))
+        consensus_seq = doc.createElement('sequence') # node for consensus sequence
+        text_consensus_seq = doc.createTextNode(self.consensus.get_sequence())
+        consensus_len = doc.createElement('length') # node for consensus length
+        text_consensus_len = doc.createTextNode(str(len(self.consensus.get_sequence())))
+        consensus_thresh = doc.createElement('threshold') # node for consensus threshold
+        text_consensus_len = doc.createTextNode(str(self.threshold_count))
+        
+        # append element textual information to the respective element
+        consensus_seq.appendChild(text_consensus_seq)
+        consensus_len.appendChild(text_consensus_len)
+        consensus_thresh.appendChild(text_consensus_thresh)
+        consensus_elem.appendChild(consensus_seq)
+        consensus_elem.appendChild(consensus_len)
+        consensus_elem.appendChild(consensus_thresh)
+        
+        root_elem.appendChild(consensus_elem)
+        doc.appendChild(root_elem) # add root element to the document
+        doc.writexml(outhandle,
+               addindent="  ",
+               newl='\n')
+        outhandle.close()
+
     
     def build_consensus(self):
         ''' 

@@ -98,12 +98,12 @@ class CommandLineParser():
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
         param_msa.add_argument('-build', metavar='FILE', default='build', 
-                    type=str, help='Output file of consensus & alignments [./build]')
+                    type=str, help='Output file of consensus & alignments [./build.xml]')
         
         # Domain-specific parameters
         param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 
-                    help='Contrast query and baseline domains [na]')
-        param_domain.add_argument('-info', metavar='BUILD', type=str, 
+                    help='Contrast query and baseline consensus builds [na]')
+        param_domain.add_argument('-info', metavar='XML', type=str, 
                     help='Print info. on a given MSA build [na]')
         param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
                     help='Maximum #/gaps in domain [3]')
