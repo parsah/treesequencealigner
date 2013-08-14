@@ -21,7 +21,7 @@ class MultipleSequenceDriver():
     def build_preconsensus(self):
         ''' 
         Takes the first 2 sequences, aligns them and renders the pairwise
-        alignment a pre-consensus. Every sequence thereof is then subsequently
+        alignment a pre-consensus (aka composite). Every sequence thereof is then subsequently
         pairwise-aligned to this pre-consensus.
         '''
         
