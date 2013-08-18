@@ -44,7 +44,7 @@ class XMLBuildWriter():
         # add each query sequence to the document
         aligns_elem = self.doc.createElement('alignments')
         aligns_elem.setAttribute('n', str(len(self.msa_obj.alignments))) # number of alignments
-        for i, seq in enumerate(self.msa_obj.alignments):
+        for _, seq in enumerate(self.msa_obj.alignments):
             text_align_seq = self.doc.createTextNode(seq)
             an_align_elem = self.doc.createElement('sequence')
             an_align_elem.appendChild(text_align_seq)

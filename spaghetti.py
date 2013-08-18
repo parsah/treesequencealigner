@@ -1,4 +1,13 @@
-version = 0.1
+''' 
+Performs both local and multiple sequence alignment (MSA) given a list of
+user-provided input sequences as a FASTA file.
+'''
+
+from parameter import AlignmentArgumentValidator, AlignmentCommandParser, InputWrapperState
+from pairwise import PairwiseDriver
+from msa import MultipleSequenceDriver, ConsensusFilterFactory
+        
+version = 0.2
 
 def run_local(targets, queries, input_state):
     driver = PairwiseDriver(targets, queries, input_state)
@@ -14,12 +23,8 @@ def run_msa(queries, input_state):
     
 if __name__ == '__main__':
     try:
-        from parameter import ArgumentValidator, CommandLineParser, InputWrapperState
-        from pairwise import PairwiseDriver
-        from msa import MultipleSequenceDriver, ConsensusFilterFactory
-        
-        args = CommandLineParser().parse_args()
-        ArgumentValidator(args) # test all arguments are correct
+        args = AlignmentCommandParser().parse_args()
+        AlignmentArgumentValidator(args) # test all arguments are correct
 
         input_state = InputWrapperState(args)
         input_state.assign_matrix() # parse in-built or custom matrix

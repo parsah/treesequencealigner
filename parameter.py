@@ -4,25 +4,48 @@ from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from sequence import NeuriteSequence
 
-# Validates user-provided command-line arguments
-class ArgumentValidator():
+class DomainArgumentValidator():
+    ''' 
+    Validates that user-provided arguments relative to domain analysis are
+    sound and of valid ranges.
+    '''
+    def __init__(self, args):
+        self.args = args
+        self.check_args()
+    
+    def test_laplace(self):
+        if 0 <= self.args['l'] <= 1.0:
+            return True
+        else:
+            raise IOError('Laplace correction must be a fraction [error]')
+    
+    def test_window_size(self):
+        if self.args['win'] > 0:
+            return True
+        else:
+            raise IOError('Sliding window must be positive [error]')
+    
+    def test_max_gaps(self):
+        if self.args['max_g'] > 0:
+            return True
+        else:
+            raise IOError('Max #/gaps must be positive [error]')
+    
+    def check_args(self):
+        return all([self.test_laplace(), self.test_max_gaps(), 
+                    self.test_window_size()])
+
+# Validates user-provided command-line arguments relative to sequence alignment
+class AlignmentArgumentValidator():
     def __init__(self, args):
         self.args = args
         self.check_python()
-        self.check_biopython()
         self.check_args()
 
     # Check python 3.0+ is available
     def check_python(self):
         if not platform.python_version_tuple()[0:2] >= ('3', '0'): # >= 3.0
             raise RuntimeError('Python 3.0+ recommended')
-
-    # BioPython must be installed
-    def check_biopython(self):
-        try:
-            import Bio
-        except ImportError:
-            raise ImportError('Make sure BioPython is installed')
 
     # Checks user-provided arguments are valid
     def check_args(self):
@@ -61,7 +84,7 @@ class ArgumentValidator():
             raise IOError('Consensus threshold (thresh) must be positive')
 
 # Helper-class to parse input arguments
-class CommandLineParser():
+class AlignmentCommandParser():
     def __init__(self):
         desc = 'Pairwise and multiple sequence alignment (MSA) of neurite sequences.'
         u='%(prog)s [options]' # command-line usage
@@ -73,7 +96,6 @@ class CommandLineParser():
         param_aln = self.parser.add_argument_group('Required alignment parameters')
         param_local = self.parser.add_argument_group('Pairwise (local) parameters')
         param_msa = self.parser.add_argument_group('MSA parameters')
-        param_domain = self.parser.add_argument_group('Domain parameters')
         param_opts = self.parser.add_argument_group('Optional parameters')
 
         # Specify required arguments
@@ -100,22 +122,6 @@ class CommandLineParser():
         param_msa.add_argument('-build', metavar='FILE', default='alns.xml', 
                     type=str, help='Output file of consensus & alignments [./alns.xml]')
         
-        # Domain-specific parameters
-        param_domain.add_argument('-contrast', nargs='+', metavar='', type=list, 
-                    help='Contrast query and baseline consensus builds [na]')
-        param_domain.add_argument('-info', metavar='XML', type=str, 
-                    help='Print info. on a given MSA build [na]')
-        param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
-                    help='Maximum #/gaps in domain [3]')
-        param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
-                    help='Sliding window length; characters [7]')
-        param_domain.add_argument('-l', metavar='FLOAT', default=0.4, type=float, 
-                    help='LaPlace correction cutoff [0.4]')
-        param_domain.add_argument('--ipf', action='store_const', const=True, 
-                    default=False, help = 'IPF normalize [false]')
-        param_domain.add_argument('--enumerate', action='store_const', const=True, 
-                    default=False, help = 'Use many window & gap cutoffs [false]')
-        
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
                     help='Second input FASTA file [na]')
@@ -136,6 +142,39 @@ class CommandLineParser():
     def parse_args(self):
         return vars(self.parser.parse_args()) # parse arguments
 
+class DomainCommandParser():
+    def __init__(self):
+        desc = 'Domain analysis of neurite multiple sequence alignments.'
+        u='%(prog)s [options]' # command-line usage
+        self.parser = argparse.ArgumentParser(description=desc, add_help=False, usage=u)
+        self._init_params()
+
+    def _init_params(self):
+        param_reqd = self.parser.add_argument_group('Required parameters')
+        param_domain = self.parser.add_argument_group('Domain parameters')
+        param_opts = self.parser.add_argument_group('Optional parameters')
+
+        # Domain-specific parameters
+        param_reqd.add_argument('-query', metavar='BUILD', 
+                    help='Set query consensus build [na]')
+        param_reqd.add_argument('-baseline', metavar='BUILD',
+                    help='Set baseline consensus build [na]')
+        param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
+                    help='Maximum #/gaps in domain [3]')
+        param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
+                    help='Sliding window length; characters [7]')
+        param_domain.add_argument('-l', metavar='FLOAT', default=0.4, type=float, 
+                    help='LaPlace correction cutoff [0.4]')
+        param_domain.add_argument('--ipf', action='store_const', const=True, 
+                    default=False, help = 'IPF normalize [false]')
+        param_domain.add_argument('--enumerate', action='store_const', const=True, 
+                    default=False, help = 'Use many window & gap cutoffs [false]')
+        
+        param_opts.add_argument('-h','--help', action='help',
+                    help='Show this help screen and exit')
+    
+    def parse_args(self):
+        return vars(self.parser.parse_args()) # parse arguments
 
 # An InputStateWrapper wraps data used as input, eg. FASTA file,
 # custom matrix, user-provided arguments, etc.
