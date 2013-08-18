@@ -33,3 +33,45 @@ class DomainSetBuilder():
                                 domains[sub_str] = 0
                             domains[sub_str] += 1 # increment its abundance
         return domains # return dictionary of domains and their abundances
+    
+class DomainAbundanceBuilder():
+    ''' 
+    This class enables the ability to build contingency matrices so as to
+    enable the ability to contrast abundance of an item across different 
+    groups. This then leads to the fact that a domain, D, could be abundant in
+    1 of 3 possible scenarios: 
+    1) D is present in query, Q, and not baseline, B.
+    2) D is present in baseline, B, and not query, Q.
+    3) D is present in both baseline, B, and query, Q.
+    Thus, for all scenarios, the contingency matrix must model group-specific
+    abundances so that truly over-represented domains can be identified.
+    '''
+    def __init__(self, query, baseline):
+        self.query = query # query domain abundances
+        self.baseline = baseline # baseline domain abundances
+    
+    def _query_exclusive_domains(self):
+        names = set()
+        for q in self.query:
+            if q not in self.baseline:
+                names.add(q)
+        return names # references domains only found in the query
+    
+    def _baseline_exclusive_domains(self):
+        names = set()
+        for b in self.baseline:
+            if b not in self.query:
+                names.add(b)
+        return names # references domains only found in the baseline
+    
+    def _intersection_domains(self):
+        # get intersection of domains present in both query and baseline sets
+        return set(self.query.keys()).intersection(self.baseline.keys())
+    
+    def build_matrices(self):
+        print('q domains')
+        for i in self.query:
+            print(i, self.query[i])
+        print('\nb domains')
+        for i in self.baseline:
+            print(i, self.baseline[i])

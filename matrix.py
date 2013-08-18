@@ -3,6 +3,9 @@ A high-level class used for modeling various StateMatrix data-structures.
 @author: Todd Gillette and Parsa Hosseini
 '''
 
+import math
+import collections
+
 class AbstractMatrix():
     """
     A high-level matrix with capability of setting row and column names and

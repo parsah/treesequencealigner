@@ -4,7 +4,7 @@ identify over-represented domains within such analyses.
 '''
 
 from parameter import DomainArgumentValidator, DomainCommandParser
-from domain import DomainSetBuilder
+from domain import DomainSetBuilder, DomainAbundanceBuilder
 from buffer import XMLBuildReader, status_message
 
 version = 0.1
@@ -18,13 +18,15 @@ if __name__ == '__main__':
         cons_baseline = XMLBuildReader(args['baseline']).parse()
         
         # next, yield domains for both query and baseline datasets. 
-        doms_query = DomainSetBuilder(win=args['win'], max_gap=args['max_g'], 
+        dsb_query = DomainSetBuilder(win=args['win'], max_gap=args['max_g'], 
                          is_enum=args['enumerate'], consensus=cons_query)
-        doms_baseline = DomainSetBuilder(win=args['win'], max_gap=args['max_g'], 
+        dsb_baseline = DomainSetBuilder(win=args['win'], max_gap=args['max_g'], 
                          is_enum=args['enumerate'], consensus=cons_baseline)
-        counts_query = doms_query.build() # build abundance counts
-        counts_baseline = doms_baseline.build()
+        domains_query = dsb_query.build() # build abundance counts
+        domains_baseline = dsb_baseline.build()
         status_message('Abundance counting', 'OK')
+        dc = DomainAbundanceBuilder(query=domains_query, baseline=domains_baseline)
+        dc.build_matrices() # build contingency matrices
         
     except (IOError, KeyboardInterrupt, IndexError) as e:
         print(str(e))
