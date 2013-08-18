@@ -5,6 +5,7 @@ A high-level class used for modeling various StateMatrix data-structures.
 
 import math
 import collections
+import decimal
 
 class AbstractMatrix():
     """
@@ -20,6 +21,7 @@ class AbstractMatrix():
         self.ncols = ncols
         self.data = [[0.0 for _ in range(self.ncols)] 
                      for _ in range(self.nrows)]
+        self.size = 0.0 # total sum of the matrix
 
     def get_width(self):
         """
@@ -30,6 +32,12 @@ class AbstractMatrix():
             return 0
         else:
             return len(self.data[0])
+    
+    def calculate_size(self):
+        """
+        Compute the total sum of the matrix by summing all row values.
+        """
+        self.size = float(sum([sum(col) for col in self.data]))
 
     def get_height(self):
         """
@@ -52,7 +60,7 @@ class ContingencyMatrix(AbstractMatrix):
     counts between two groups (A and B).
     """
 
-    def __init__(self, node, group_a, group_b):
+    def __init__(self, node, i_g, i_not_g, not_i_g, not_i_not_g):
         """
         Creates a Contingency Matrix instances representing counts given
         counts within groups A and B.
@@ -60,7 +68,11 @@ class ContingencyMatrix(AbstractMatrix):
         @param node: Domain of interest.
         """
         super(ContingencyMatrix, self).__init__(2, 2) # 2x2 matrix
-        self.node = node
+        self.name = node
+        # set values in the respective matrix
+        self.data[0][0], self.data[0][1] = i_g, i_not_g
+        self.data[1][0], self.data[1][1] = not_i_g, not_i_not_g
+        self.calculate_size()
 
     def ipf(self):
         """
@@ -344,3 +356,27 @@ class DirectionalMatrixWrapper():
     def transpose(self):
         return self.T
 
+def factorial(num):
+    """
+    Computes the factorial for a given integer. To enable factorial
+    computation of large numbers, log-scaling summation is performed, with
+    the resultant exponential of the value being returned.
+    
+    :param num: Input integer.
+    :return: Factorial result.
+    """
+    log_scale = sum([math.log(i) for i in range(1, num + 1)])
+    return decimal.Decimal(log_scale).exp()
+
+
+def combinatorial(n, r):
+    """
+    Computes the combinatorial value given n-choose-r integers.
+    :param n: Total size.
+    :param r: Selection size.
+    :return: combinatorial for n-choose-r items.
+    """
+    n, r = int(n), int(r) # counts are as floats; cast to integer
+    numerator = factorial(n)
+    denominator = factorial(r) * factorial(n - r)
+    return numerator / denominator

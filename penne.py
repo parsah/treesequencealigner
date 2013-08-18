@@ -24,9 +24,10 @@ if __name__ == '__main__':
                          is_enum=args['enumerate'], consensus=cons_baseline)
         domains_query = dsb_query.build() # build abundance counts
         domains_baseline = dsb_baseline.build()
-        status_message('Abundance counting', 'OK')
+        status_message('Domain identification', 'OK')
         dc = DomainAbundanceBuilder(query=domains_query, baseline=domains_baseline)
         dc.build_matrices() # build contingency matrices
+        status_message('Computing domain over-representation ', 'OK')
         
     except (IOError, KeyboardInterrupt, IndexError) as e:
         print(str(e))

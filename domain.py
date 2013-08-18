@@ -1,4 +1,5 @@
 import re
+from matrix import ContingencyMatrix
 
 class DomainSetBuilder():
     ''' 
@@ -69,9 +70,47 @@ class DomainAbundanceBuilder():
         return set(self.query.keys()).intersection(self.baseline.keys())
     
     def build_matrices(self):
-        print('q domains')
-        for i in self.query:
-            print(i, self.query[i])
-        print('\nb domains')
-        for i in self.baseline:
-            print(i, self.baseline[i])
+        # Suppose we set the following: 
+        # Query (G) and Baseline (! G)
+        # Domain (i) and all-other domains (! i) 
+        size_query = sum(self.query.values()) # same as n(G)
+        size_baseline = sum(self.baseline.values()) # same as n(! G)
+        matrices = []
+        
+        # building matrices in query and baseline
+        for d in self._intersection_domains():
+            i_and_G = self.query[d] # domain count in query (idx: 0, 0)
+            i_and_not_G = self.baseline[d] # domain count in query (idx: 0, 1)
+            not_i_and_G = size_query - i_and_G # not-domain in query (idx: 1, 0)
+            not_i_and_not_G = size_baseline - i_and_not_G # not-domain in baseline (idx: 1, 1)
+            cm = ContingencyMatrix(node = d, i_g = i_and_G, 
+                                   i_not_g = i_and_not_G, not_i_g=not_i_and_G, 
+                                   not_i_not_g = not_i_and_not_G)
+            matrices.append(cm)
+            
+        # building matrices in baseline only
+        for d in self._baseline_exclusive_domains():
+            i_and_G = 0.01 # domain count in query (idx: 0, 0)
+            i_and_not_G = self.baseline[d] # domain count in query (idx: 0, 1)
+            not_i_and_G = size_query - i_and_G # not-domain in query (idx: 1, 0)
+            not_i_and_not_G = size_baseline - i_and_not_G # not-domain in baseline (idx: 1, 1)
+            cm = ContingencyMatrix(node = d, i_g = i_and_G, 
+                                   i_not_g = i_and_not_G, not_i_g=not_i_and_G, 
+                                   not_i_not_g = not_i_and_not_G)
+            matrices.append(cm)
+        
+        # building matrices in query only
+        for d in self._query_exclusive_domains():
+            i_and_G = self.query[d] # domain count in query (idx: 0, 0)
+            i_and_not_G = 0.01 # domain count in query (idx: 0, 1)
+            not_i_and_G = size_query - i_and_G # not-domain in query (idx: 1, 0)
+            not_i_and_not_G = size_baseline - i_and_not_G # not-domain in baseline (idx: 1, 1)
+            cm = ContingencyMatrix(node = d, i_g = i_and_G, 
+                                   i_not_g = i_and_not_G, not_i_g=not_i_and_G, 
+                                   not_i_not_g = not_i_and_not_G)
+            matrices.append(cm)
+            
+        print('Domain\tp-value')
+        for i in matrices:
+            print(i.name, '\t', round(i.get_hypergeometric_prob(), 4))
+        
