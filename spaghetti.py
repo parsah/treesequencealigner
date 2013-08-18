@@ -26,6 +26,7 @@ if __name__ == '__main__':
         args = AlignmentCommandParser().parse_args()
         AlignmentArgumentValidator(args) # test all arguments are correct
 
+        print('spaghetti - v.' + str(version) + '\n=================')
         input_state = InputWrapperState(args)
         input_state.assign_matrix() # parse in-built or custom matrix
         targets = input_state.parse_fasta(input_state.fname) # next, parse fasta file

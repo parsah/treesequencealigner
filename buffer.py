@@ -3,6 +3,23 @@ A high-level module which performs functionality having to do with writing
 results produced from analysis
 '''
 from xml.dom import minidom # used for XML writing
+from xml.etree import ElementTree # used for XML reading
+from sequence import ConsensusSequence
+
+def status_message(s, state='OK'):
+    print(s + ' [' + state + ']')
+
+class XMLBuildReader():
+    ''' 
+    Reads a user-provided XML build file and extracts its consensus sequence.
+    '''
+    def __init__(self, fname):
+        self.fname = fname
+        
+    def parse(self):
+        tree = ElementTree.parse(self.fname)
+        seq = tree.find('consensus/sequence').text # use XPath to get consensus
+        return ConsensusSequence(name = self.fname, seq = seq)
 
 class XMLBuildWriter():
     ''' 

@@ -1,6 +1,7 @@
 from matrix import StateMatrix, DirectionalMatrixWrapper
+from buffer import status_message
 import concurrent.futures
-from random import shuffle
+# from random import shuffle
 
 default_nodetypes = {'A':'A','C':'C','T':'T'}
 
@@ -75,7 +76,7 @@ class PairwiseDriver():
 
     # Initialize the core given query sequences and input arguments
     def start(self):
-        print('--- Pairwise alignment mode ---')
+        status_message('Pairwise alignment running', 'please wait')
         executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
         try:
             for target in self.targets: # per fasta, create a concurrent job, f.
@@ -85,7 +86,7 @@ class PairwiseDriver():
                 f.add_done_callback(self._callback)
             executor.shutdown()
             self.close_output_buffers()
-            print('--- Analysis Complete ---')
+            status_message('Analysis complete', 'OK')
         except KeyboardInterrupt:
             executor.shutdown()
 

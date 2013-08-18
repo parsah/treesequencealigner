@@ -2,9 +2,9 @@ import pairwise
 import math
 from sequence import NeuriteSequence
 from collections import Counter
-from random import shuffle
+# from random import shuffle
 from tree import TreeLogicFactory
-from output import XMLBuildWriter
+from buffer import XMLBuildWriter
 
 class MultipleSequenceDriver():
     ''' 
@@ -71,7 +71,7 @@ class MultipleSequenceDriver():
             # sequence sA is the query alignment while sB is the pre-consensus.
             # we only need sA because sB does not change; all sequences are
             # mapped to this and therefore the resultant alignment is desired.
-            align_sA, align_sB = nw.prettify()[1]
+            align_sA, _ = nw.prettify()[1]
             self.alns.append(align_sA)
             name_lengths.append(len(curr_seq.name))
         

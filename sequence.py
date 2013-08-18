@@ -36,14 +36,18 @@ class NeuriteSequence():
         return self.seq
     
     def __str__(self):
-        return '{ ' + self.get_name() + '; ' + self.get_sequence() + ' }'
+        return '{ ' + self.get_name() + '; ' + self.get_sequence() +\
+            '; ' + str(self.get_length()) + ' bases }'
     
     def __repr__(self):
         return self.__str__()
     
-class ConsensusSequenceWrapper():
+class ConsensusSequence(NeuriteSequence):
     ''' 
     Encapsulates a consensus sequence so it can be parsed and analyzed using 
     domain-analysis mode.
     '''
-    pass
+    def __init__(self, name, seq):
+        super(ConsensusSequence, self).__init__(name, seq)
+        self.num_gaps = 0
+        
