@@ -14,6 +14,17 @@ def run_local(targets, queries, input_state):
     driver.start() # start only pairwise alignment
 
 def run_msa(queries, input_state):
+    if args['random_subset']:
+        shuffle(queries)
+
+    if args['subsample'] < 1:
+        queries = list([queries[i] for i in range(int(args['subsample']*len(queries))-1)])
+    elif args['subsample'] > 1 and args['subsample'] < len(queries):
+        queries = list([queries[i] for i in range(int(args['subsample'])-1)])
+
+    if args['random_order']:
+        shuffle(queries)
+
     driver = MultipleSequenceDriver(queries, input_state)
     driver.build_preconsensus()
     driver.align() # align sequences and build resultant consensus
