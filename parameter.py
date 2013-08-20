@@ -121,6 +121,13 @@ class AlignmentCommandParser():
                     help='Threshold type {percent, sqrt} [percent]')
         param_msa.add_argument('-build', metavar='FILE', default='alns.xml', 
                     type=str, help='Output file of consensus & alignments [./alns.xml]')
+        param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
+                    help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
+        param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
+                    help='Subset is a random sample of data (shuffle sequences before taking subset).')
+        param_opts.add_argument('--random_order', action='store_const', const=True, default=False,
+                    help='Order of sequences (in subsample of data if using --subset) is shuffled.')
+
         
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
