@@ -6,6 +6,7 @@ user-provided input sequences as a FASTA file.
 from parameter import AlignmentArgumentValidator, AlignmentCommandParser, InputWrapperState
 from pairwise import PairwiseDriver
 from msa import MultipleSequenceDriver, ConsensusFilterFactory
+from random import shuffle
         
 version = 0.2
 
