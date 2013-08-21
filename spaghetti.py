@@ -23,7 +23,7 @@ def run_msa(queries, input_state):
             subsample_size = max(len(queries),args['subsample'])
             
         if args['random_subset']:
-            ' Randomize order and take first _subsample_size_ sequences, then reorder
+            # Randomize order and take first _subsample_size_ sequences, then reorder
             query_ids = [x for x in range(len(queries))]
             shuffle(query_ids)
             query_ids = sorted(query_ids[0:subsample_size])
