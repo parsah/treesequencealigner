@@ -19,8 +19,8 @@ def run_msa(queries, input_state):
     if args['subsample'] != 1:
         if args['subsample'] < 1:
             subsample_size = int(args['subsample']*len(queries))
-        elif args['subsample'] > 1 and args['subsample'] < len(queries):
-            subsample_size = max(len(queries),args['subsample'])
+        elif args['subsample'] > 1:
+            subsample_size = min(len(queries),args['subsample'])
             
         if args['random_subset']:
             # Randomize order and take first _subsample_size_ sequences, then reorder
