@@ -27,9 +27,9 @@ def run_msa(queries, input_state):
             query_ids = [x for x in range(len(queries))]
             shuffle(query_ids)
             query_ids = sorted(query_ids[0:subsample_size])
-            queries = queries[query_ids]
+            queries = list([queries[i] for i in query_ids])
         else:
-            queries = list([queries[i] for i in range(int(args['subsample']))])
+            queries = list([queries[i] for i in range(subsample_size)])
 
     if args['random_order']:
         shuffle(queries)
