@@ -7,11 +7,12 @@ class DomainSetBuilder():
     to analyze a consensus sequence and extract out domains which satisfy
     user-provided arguments. 
     '''
-    def __init__(self, consensus, win, max_gap, is_enum=False):
+    def __init__(self, consensus, win, max_gap, is_strip, is_enum=False):
         self.consensus = consensus # input consensus sequence object
         self.is_enumerate = is_enum # enumerate window size and max #/gaps
         self.win = win # sliding-window size
         self.max_gap = max_gap # maximum #/gaps in each domain
+        self.is_strip = is_strip
         
     def build(self):
         wins = [self.win]
@@ -25,7 +26,9 @@ class DomainSetBuilder():
                 raise IOError('-win must be less than consensus length')
             else: # for each window, pull-out the respective domain
                 for idx in range(len(self.consensus.seq)):
-                    sub_str = self.consensus.seq[idx: idx + w] # reference                    
+                    sub_str = self.consensus.seq[idx: idx + w] # reference
+                    if self.is_strip: # if gaps are found, remove them
+                        sub_str = sub_str.replace('-', '')
                     num_gap = sub_str.count('-') # count number of gaps
                     if len(sub_str) == w: # domain must equal sliding window
                         # only-gapped sequences are ignored
@@ -69,7 +72,7 @@ class DomainAbundanceBuilder():
         # get intersection of domains present in both query and baseline sets
         return set(self.query.keys()).intersection(self.baseline.keys())
     
-    def build_matrices(self):
+    def build(self):
         # Suppose we set the following: 
         # Query (G) and Baseline (! G)
         # Domain (i) and all-other domains (! i) 
@@ -109,8 +112,32 @@ class DomainAbundanceBuilder():
                                    i_not_g = i_and_not_G, not_i_g=not_i_and_G, 
                                    not_i_not_g = not_i_and_not_G)
             matrices.append(cm)
-            
-        print('Domain\tp-value')
-        for i in matrices:
-            print(i.name, '\t', round(i.get_hypergeometric_prob(), 4))
+        
+        return matrices
+    
+class DomainPrettyPrinter():
+    ''' 
+    Prints statistically-significant domains after computing a hypergeometric
+    p-value representing the abundance for it.
+    @param domains: List of identified domains
+    @param pval: User-provided p-value cutoff
+    '''
+    def __init__(self, domains, pval, out):
+        self.domains = domains
+        self.pval = pval
+        self.fname = out
+    
+    def display(self):
+        ''' 
+        Prints statistically-significant domains to the screen.
+        '''
+        handle = open(self.fname, 'w')
+        handle.write('Domain\tp-value\n') # write header
+        handle.flush()
+        for i in self.domains:
+            dom_pval = i.get_hypergeometric_prob() # compute domain p-value
+            if dom_pval <= self.pval: # domain must be less than p-value cutoff
+                handle.write(i.name + '\t' + str(round(dom_pval, 6)) + '\n')
+                handle.flush()
+        handle.close()
         

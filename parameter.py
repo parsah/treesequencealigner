@@ -101,47 +101,60 @@ class AlignmentCommandParser():
         # Specify required arguments
         param_aln.add_argument('-f', metavar='FILE',
                     help='Input FASTA file [na]')
+        
         param_aln.add_argument('-mode', metavar='MODE',
                     choices=['local', 'msa', 'domain'],
                     help='Analysis mode {local, msa} [msa]')
+        
         param_aln.add_argument('-matrix', metavar='STR', default=None,
                     help='Matrix; see Biopython MatrixInfo [na]')
         
         # Local-alignment specific parameters
         param_local.add_argument('-gap', metavar='INT', default=-8, type=int,
                     help='Gap extension penalty [-8]')
+        
         param_local.add_argument('-gapopen', metavar='INT', default=0, type=int,
                     help='Gap open penalty [0]')
         
         # MSA specific parameters
         param_msa.add_argument('-thresh', metavar='FLOAT', default=0.7, type=float, 
                     help='Consensus threshold [0.7]')
+        
         param_msa.add_argument('-type', metavar='STR', default='percent', 
                     choices=['percent', 'sqrt'],
                     help='Threshold type {percent, sqrt} [percent]')
+        
         param_msa.add_argument('-build', metavar='FILE', default='alns.xml', 
                     type=str, help='Output file of consensus & alignments [./alns.xml]')
+        
         param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
                     help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
+        
         param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
                     help='Subset is a random sample of data (shuffle sequences before taking subset).')
+        
         param_opts.add_argument('--random_order', action='store_const', const=True, default=False,
                     help='Order of sequences (in subsample of data if using --subset) is shuffled.')
 
-        
         # General, optional arguments
         param_opts.add_argument('-f2', metavar='FILE', default=None,
                     help='Second input FASTA file [na]')
+        
         param_opts.add_argument('-custom', metavar='FILE', default=None,
                     help='Custom substitution matrix [na]')
+        
         param_opts.add_argument('-nodeTypes', metavar='FILE', default=None,
                     help='Node Type Specifications [na]')
+        
         param_opts.add_argument('-n', metavar='INT', default=2, type=int,
                     help='Number of worker processes [2]')
-        param_opts.add_argument('-o', metavar='FILE', default='scores.tab', 
-                    help='File to write/append output [scores.tab]')
+        
+        param_opts.add_argument('-o', metavar='FILE', default='./scores.tab', 
+                    help='File to write/append output [./scores.tab]')
+        
         param_opts.add_argument('-a', metavar='FILE', default=None, 
                     help='File to write/append alignments [na]')
+        
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
 
@@ -164,19 +177,32 @@ class DomainCommandParser():
         # Domain-specific parameters
         param_reqd.add_argument('-query', metavar='BUILD', 
                     help='Set query consensus build [na]')
+        
         param_reqd.add_argument('-baseline', metavar='BUILD',
                     help='Set baseline consensus build [na]')
+        
         param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
                     help='Maximum #/gaps in domain [3]')
+        
         param_domain.add_argument('-win', metavar='INT', default=7, type=int, 
                     help='Sliding window length; characters [7]')
+        
         param_domain.add_argument('-l', metavar='FLOAT', default=0.4, type=float, 
                     help='LaPlace correction cutoff [0.4]')
+        
+        param_domain.add_argument('-o', metavar='FILE', default='./doms.txt', type=str, 
+                    help='Output file for saving identified domains [./doms.txt]')
+        
+        param_domain.add_argument('-p', metavar='FLOAT', default=0.05, type=float, 
+                    help='Hypergeometric p-value cutoff [0.05]')
+        
         param_domain.add_argument('--ipf', action='store_const', const=True, 
                     default=False, help = 'IPF normalize [false]')
-        param_domain.add_argument('--enumerate', action='store_const', const=False, 
+        
+        param_domain.add_argument('--enumerate', action='store_const', const=True, 
                     default=False, help = 'Use many window & gap cutoffs [false]')
-        param_domain.add_argument('--strip', action='store_const', const=False, 
+        
+        param_domain.add_argument('--strip', action='store_const', const=True,
                     default=False, help = 'Strip gaps within sliding window [false]')
         
         param_opts.add_argument('-h','--help', action='help',

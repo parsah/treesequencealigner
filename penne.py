@@ -4,7 +4,7 @@ identify over-represented domains within such analyses.
 '''
 
 from parameter import DomainArgumentValidator, DomainCommandParser
-from domain import DomainSetBuilder, DomainAbundanceBuilder
+from domain import DomainSetBuilder, DomainAbundanceBuilder, DomainPrettyPrinter
 from buffer import XMLBuildReader, status_message
 
 version = 0.1
@@ -26,10 +26,13 @@ if __name__ == '__main__':
                          is_strip=args['strip'])
         domains_query = dsb_query.build() # build abundance counts
         domains_baseline = dsb_baseline.build()
-        status_message('Domain identification', 'OK')
-        dc = DomainAbundanceBuilder(query=domains_query, baseline=domains_baseline)
-        dc.build_matrices() # build contingency matrices
-        status_message('Computing domain over-representation ', 'OK')
+        status_message('Identifying domains', 'OK')
+        db = DomainAbundanceBuilder(query=domains_query, baseline=domains_baseline)
+        domains = db.build() # build contingency matrices 
+        dpp = DomainPrettyPrinter(domains = domains, pval = args['p'],
+                                  out=args['o'])
+        dpp.display() # pretty-print domains
+        status_message('Domain over-representation computation complete ', 'OK')
         
     except (IOError, KeyboardInterrupt, IndexError) as e:
         print(str(e))
