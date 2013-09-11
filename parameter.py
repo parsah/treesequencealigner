@@ -103,7 +103,7 @@ class AlignmentCommandParser():
                     help='Input FASTA file [na]')
         param_aln.add_argument('-mode', metavar='MODE',
                     choices=['local', 'msa', 'domain'],
-                    help='Analysis mode {local, msa, domain} [msa]')
+                    help='Analysis mode {local, msa} [msa]')
         param_aln.add_argument('-matrix', metavar='STR', default=None,
                     help='Matrix; see Biopython MatrixInfo [na]')
         
@@ -174,8 +174,10 @@ class DomainCommandParser():
                     help='LaPlace correction cutoff [0.4]')
         param_domain.add_argument('--ipf', action='store_const', const=True, 
                     default=False, help = 'IPF normalize [false]')
-        param_domain.add_argument('--enumerate', action='store_const', const=True, 
+        param_domain.add_argument('--enumerate', action='store_const', const=False, 
                     default=False, help = 'Use many window & gap cutoffs [false]')
+        param_domain.add_argument('--strip', action='store_const', const=False, 
+                    default=False, help = 'Strip gaps within sliding window [false]')
         
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
