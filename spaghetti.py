@@ -15,7 +15,7 @@ def run_local(targets, queries, input_state):
     driver.start() # start only pairwise alignment
 
 def run_msa(queries, input_state):
-
+    args = input_state.args
     if args['subsample'] != 1:
         if args['subsample'] < 1:
             subsample_size = int(args['subsample']*len(queries))
@@ -29,7 +29,11 @@ def run_msa(queries, input_state):
             query_ids = sorted(query_ids[0:subsample_size])
             queries = list([queries[i] for i in query_ids])
         else:
-            queries = list([queries[i] for i in range(subsample_size)])
+            if args['subset_start'] < 1:
+                start = args['subset_start']*len(queries)
+            else:
+                start = args['subset_start']
+            queries = list([queries[i] for i in range(start,start+subsample_size)])
 
     if args['random_order']:
         shuffle(queries)
