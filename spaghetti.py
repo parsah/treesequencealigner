@@ -30,9 +30,9 @@ def run_msa(queries, input_state):
             queries = list([queries[i] for i in query_ids])
         else:
             if args['subsample_start'] < 1:
-                start = args['subsample_start']*len(queries)
+                start = int(args['subsample_start']*len(queries))
             else:
-                start = args['subsample_start']
+                start = int(args['subsample_start'])
             queries = list([queries[i] for i in range(start,start+subsample_size)])
 
     if args['random_order']:
