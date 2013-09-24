@@ -29,7 +29,7 @@ def run_msa(queries, input_state):
             query_ids = sorted(query_ids[0:subsample_size])
             queries = list([queries[i] for i in query_ids])
         else:
-            if args['subset_start'] < 1:
+            if args['subsample_start'] < 1:
                 start = args['subsample_start']*len(queries)
             else:
                 start = args['subsample_start']
