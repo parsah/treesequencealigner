@@ -130,7 +130,7 @@ class AlignmentCommandParser():
         param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
                     help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
 
-        param_opts.add_argument('--subsample_start', metavar='FLOAT', default=1, type=float, 
+        param_opts.add_argument('--subsample_start', metavar='FLOAT', default=0, type=float, 
                     help='If taking a subsample, subsample_start determines from which sequence to start the subset (as proportion or explicit number, indexed from 0). If size and start of subsample lead to an exhaustion of the available sequences an error will be be displayed.')
         
         param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
