@@ -101,7 +101,8 @@ class ContingencyMatrix(AbstractMatrix):
         @param to_prob: Output probability or raw count boolean.
         @return: Abundance of group G.
         """
-        val = float(self.__group_a.graph.total_count)
+        #val = float(self.__group_a.graph.total_count)
+        val = float(self.data[0][0] + self.data[1][0])
         return (val / self.size) if to_prob else val
 
     def get_not_g(self, to_prob=False):
@@ -111,8 +112,10 @@ class ContingencyMatrix(AbstractMatrix):
         @param to_prob: Output probability or raw count boolean.
         @return: Abundance of not-group G.
         """
-        count = float(self.__group_b.graph.total_count)
-        return (count / self.size) if to_prob else count
+        #count = float(self.__group_b.graph.total_count)
+        #return (count / self.size) if to_prob else count
+        val = float(self.data[0][1] + self.data[1][1])
+        return (val / self.size) if to_prob else val
 
     def get_g_x(self, to_prob=False):
         """
@@ -251,14 +254,20 @@ class ContingencyMatrix(AbstractMatrix):
         Computes hypergeometric distribution given matrix.
         @return: p-value
         """
-        x = self.get_g_x()
-        N = self.size
-        M = self.get_x()
-        n = self.get_g_x()
-        m_give_x = combinatorial(M, x)
-        nm_give_nk = combinatorial(N - M, n - x)
+        k = self.get_g_x() # Number of target set domains that are the domain of interest
+        N = self.size # Number of domains in target and baseline set
+        n = self.get_g() # Number of domains in the target set
+        K = self.get_x() # Occurances of the domain of interest in target and baseline sets
         n_give_n = combinatorial(N, n)
-        return (m_give_x * nm_give_nk) / n_give_n
+        phyper = 0
+
+        for x in range(int(k+1)):
+            m_give_x = combinatorial(K, x)
+            nm_give_nk = combinatorial(N - K, n - x)
+            dhyper = (m_give_x * nm_give_nk) / n_give_n
+            phyper += dhyper
+        #return (m_give_x * nm_give_nk) / n_give_n
+        return phyper
 
     def measures(self):
         """
