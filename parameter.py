@@ -3,6 +3,8 @@ import platform
 from Bio.SubsMat import MatrixInfo
 from Bio import SeqIO
 from sequence import NeuriteSequence
+import sequence
+from random import shuffle
 
 class DomainArgumentValidator():
     ''' 
@@ -106,12 +108,12 @@ class AlignmentCommandParser():
                     choices=['local', 'msa', 'domain'],
                     help='Analysis mode {local, msa} [msa]')
         
-        param_aln.add_argument('-matrix', metavar='STR', default=None,
-                    help='Matrix; see Biopython MatrixInfo [na]')
+#        param_aln.add_argument('-matrix', metavar='STR', default=None,
+#                    help='Matrix; see Biopython MatrixInfo [na]')
         
         # Local-alignment specific parameters
-        param_local.add_argument('-gap', metavar='INT', default=-8, type=int,
-                    help='Gap extension penalty [-8]')
+        param_local.add_argument('-gap', metavar='INT', default=-1, type=int,
+                    help='Gap extension penalty [-1]')
         
         param_local.add_argument('-gapopen', metavar='INT', default=0, type=int,
                     help='Gap open penalty [0]')
@@ -146,7 +148,7 @@ class AlignmentCommandParser():
         param_opts.add_argument('-custom', metavar='FILE', default=None,
                     help='Custom substitution matrix [na]')
         
-        param_opts.add_argument('-nodeTypes', metavar='FILE', default=None,
+        param_opts.add_argument('-node_types', metavar='FILE', default=None,
                     help='Node Type Specifications [na]')
         
         param_opts.add_argument('-n', metavar='INT', default=2, type=int,
@@ -174,15 +176,20 @@ class DomainCommandParser():
 
     def _init_params(self):
         param_reqd = self.parser.add_argument_group('Required parameters')
+        param_msa = self.parser.add_argument_group('MSA parameters')
         param_domain = self.parser.add_argument_group('Domain parameters')
         param_opts = self.parser.add_argument_group('Optional parameters')
 
         # Domain-specific parameters
+        param_reqd.add_argument('-mode', metavar='MODE',
+                    choices=['single','multiple'],
+                    help='Analysis mode {single, multiple} [single]')
+
         param_reqd.add_argument('-query', metavar='BUILD', 
-                    help='Set query consensus build [na]')
+                    help='Set query consensus build (if mode=single) or fasta file (if mode=multiple) [na]')
         
         param_reqd.add_argument('-baseline', metavar='BUILD',
-                    help='Set baseline consensus build [na]')
+                    help='Set baseline consensus build (if mode=single) or fasta file (if mode=multiple) [na]')
         
         param_domain.add_argument('-max-g', metavar='INT', default=3, type=int, 
                     help='Maximum #/gaps in domain [3]')
@@ -204,10 +211,58 @@ class DomainCommandParser():
         
         param_domain.add_argument('--enumerate', action='store_const', const=True, 
                     default=False, help = 'Use many window & gap cutoffs [false]')
+
+        param_domain.add_argument('-minwin', metavar='INT', default=1, type=int, 
+                    help = 'While using enumerate, the minimum window size [1]')
         
         param_domain.add_argument('--strip', action='store_const', const=True,
                     default=False, help = 'Strip gaps within sliding window [false]')
+
+        param_domain.add_argument('-runs', metavar='INT', default=10, type=int, 
+                    help='Number of times to run MSA if mode=multiple [10]')
+
+        param_domain.add_argument('--cluster', action='store_const', const=True,
+                    default=False, help='Cluster domains before running statistical analysis [false]')
+
+#        param_domain.add_argument('-max_cluster_dist', metavar='INT', default=0, type=int, 
+#                    help='Maximum distance between seed domain and any domain in the cluster [0]')
+
+        param_domain.add_argument('-thresh', metavar='FLOAT', default=0.7, type=float, 
+                    help='Consensus threshold [0.7]')
         
+        param_domain.add_argument('-type', metavar='STR', default='percent', 
+                    choices=['percent', 'sqrt'],
+                    help='Threshold type {percent, sqrt} [percent]')
+
+        # MSA specific parameters
+        param_msa.add_argument('-node_types', metavar='FILE', default=None,
+                    help='Node Type Specifications [na]')
+
+        param_msa.add_argument('-custom', metavar='FILE', default=None,
+                    help='Custom substitution matrix [na]')
+
+        param_msa.add_argument('-gap', metavar='INT', default=-1, type=int,
+                    help='Gap extension penalty [-1]')
+        
+        param_msa.add_argument('-gapopen', metavar='INT', default=0, type=int,
+                    help='Gap open penalty [0]')
+        
+        
+        param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
+                    help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
+
+        param_opts.add_argument('--subsample_start', metavar='FLOAT', default=0, type=float, 
+                    help='If taking a subsample, subsample_start determines from which sequence to start the subset (as proportion or explicit number, indexed from 0). If size and start of subsample lead to an exhaustion of the available sequences an error will be be displayed.')
+        
+        param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
+                    help='Subset is a random sample of data (shuffle sequences before taking subset).')
+
+        param_opts.add_argument('--random_order', action='store_const', const=True, default=False,
+                    help='Order of sequences (in subsample of data if using --subset) is shuffled.')
+
+        param_opts.add_argument('-n', metavar='INT', default=2, type=int,
+                    help='Number of worker processes [2]')
+
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
     
@@ -223,10 +278,19 @@ class InputWrapperState():
         self.fname = args['f'] # input filename
         self.fname2 = args['f2'] # input filename
         self.alignment_file = args['a']
+        if 'node_types' in args.keys() and args['node_types'] is not None:
+            self.node_types = sequence.parse_node_types(args['node_types'])
+        else:
+            self.node_types = sequence.default_nodetypes
+        self.assign_matrix()
 
     # Get arguments
     def get_args(self):
         return self.args
+
+    # Get node types
+    def get_node_types(self):
+        return self.node_types       
 
     # Get arguments relative to penalties
     def get_penalties(self):
@@ -249,14 +313,14 @@ class InputWrapperState():
 
     # Set the desired matrix the user wishes to add
     def assign_matrix(self):
-        if not self.args['matrix']: # if no in-built matrix, parse custom matrix
-            self.subsmat = self.__parse_custom_matrix() # custom matrix
+        if 'custom' not in self.args or not self.args['custom']: # if no custom matrix, use identity
+            self.subsmat = sequence.generate_identity_matrix(self.node_types)
         else:
-            self.subsmat = self.__parse_inbuilt_matrix()
+            self.subsmat = self.__parse_custom_matrix() # custom matrix
 
     # Get the user-provided in-built matrix
-    def __parse_inbuilt_matrix(self):
-        return getattr(MatrixInfo, self.args['matrix']) # get substitution matrix
+    #def __parse_inbuilt_matrix(self):
+    #    return getattr(MatrixInfo, self.args['matrix']) # get substitution matrix
 
     # Function to parse custom scoring matrix.
     def __parse_custom_matrix(self):
@@ -288,3 +352,31 @@ class InputWrapperState():
                     submat[(a, b)] = score
         return submat
 
+def generate_sequence_set(sequences,num_seqs=0,random_set=False,random_order=True,seq_start=0):
+    sequence_set = sequences
+
+#    print("Num_seqs: "+str(num_seqs)+"; RandomSet: "+str(random_set)+"; RandomOrder: "+str(random_order))
+
+    if num_seqs != 1:
+        if num_seqs < 1:
+            num_seqs = int(len(sequences)*num_seqs)
+        else:
+            num_seqs = int(min(len(sequences),num_seqs))
+
+        if seq_start < 1:
+            start = int(seq_start*len(sequences))
+        else:
+            start = int(seq_start)
+
+        if random_set:
+            ids = [x for x in range(len(sequences))]
+            shuffle(ids)
+            ids = sorted(ids[0:num_seqs])
+            sequence_set = list([sequences[i] for i in ids])
+        else:
+            sequence_set = list([sequences[i] for i in range(start,start+num_seqs)])
+
+    if random_order:
+        shuffle(sequence_set)
+
+    return sequence_set
