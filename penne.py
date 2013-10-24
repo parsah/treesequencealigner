@@ -165,8 +165,8 @@ def cluster_domains(domain_occurrences,node_types,subsmat,args):
         domains_sub = list([domain for domain in domains if len(domain) == length])
 
         #domains_ns = list([NeuriteSequence("D"+str(i),domains[i]) for i in range(len(domains))])
-        domains_ns = list([NeuriteSequence(domains[i],domains[i]) for i in range(len(domains))])
-        domain_id_map = {domains[i]:i for i in range(len(domains))}
+        domains_ns = list([NeuriteSequence(domains_sub[i],domains_sub[i]) for i in range(len(domains_sub))])
+        domain_id_map = {domains_sub[i]:i for i in range(len(domains_sub))}
         driver = PairwiseDriver(domains_ns, domains_ns, input_state, store_pairwise=True, score_type='num_gaps')
         driver.start()
         distance_mat = driver.get_score_matrix()
