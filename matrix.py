@@ -249,7 +249,7 @@ class ContingencyMatrix(AbstractMatrix):
             True) * self.get_not_g(True)
         return top / bottom
 
-    def get_hypergeometric_prob(self):
+    def get_hypergeometric_prob_mass(self):
         """
         Computes hypergeometric distribution given matrix.
         @return: p-value
@@ -259,14 +259,39 @@ class ContingencyMatrix(AbstractMatrix):
         n = self.get_g() # Number of domains in the target set
         K = self.get_x() # Occurances of the domain of interest in target and baseline sets
         n_give_n = combinatorial(N, n)
+
+        m_give_x = combinatorial(K, k)
+        nm_give_nk = combinatorial(N - K, n - k)
+        dhyper = (m_give_x * nm_give_nk) / n_give_n
+        return dhyper
+
+    def get_hypergeometric_pval(self):
+        """
+        Computes hypergeometric distribution given matrix.
+        @return: p-value
+        """ 
+        N = self.size # Number of domains in target and baseline set
+        n = self.get_g() # Number of total domain occurences in the target set
+        K = self.get_x() # Total occurences of the domain of interest (in target and baseline sets)
+        k = self.get_g_x() # Number of target set domains that are the domain of interest
+        n_give_n = combinatorial(N, n)
         phyper = 0
 
-        for x in range(int(k+1)):
-            m_give_x = combinatorial(K, x)
-            nm_give_nk = combinatorial(N - K, n - x)
-            dhyper = (m_give_x * nm_give_nk) / n_give_n
-            phyper += dhyper
-        #return (m_give_x * nm_give_nk) / n_give_n
+        max_range = min(K,n)
+        if max_range - k > k:
+            for x in range(0,int(k)):
+                m_give_x = combinatorial(K, x)
+                nm_give_nk = combinatorial(N - K, n - x)
+                dhyper = (m_give_x * nm_give_nk) / n_give_n
+                phyper += dhyper
+            phyper = 1-phyper
+        else:
+            for x in range(int(k),int(max_range+1)):
+                m_give_x = combinatorial(K, x)
+                nm_give_nk = combinatorial(N - K, n - x)
+                dhyper = (m_give_x * nm_give_nk) / n_give_n
+                phyper += dhyper
+
         return phyper
 
     def measures(self):
