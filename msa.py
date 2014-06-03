@@ -96,7 +96,7 @@ class MultipleSequenceDriver():
             for curr_seq in self.queries:
                 # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
                 #nw = NeedlemanWunsch(s1=curr_seq, s2=self.composite, 
-                pw_matcher = pairwise.PositionWeightedMatcher(sequence=curr_seq, pwm=pwm, 
+                pw_matcher = PositionWeightedMatcher(sequence=curr_seq, pwm=pwm, 
                                     costs=self.costs, node_types=self.node_types)
                 # sequence sA is the query alignment while sB is the composite.
                 # we only need sA because sB does not change; all sequences are
