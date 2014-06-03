@@ -38,7 +38,7 @@ class MultipleSequenceDriver():
         s0 = queries[0]
         s1 = queries[1]
         # pass them both into the tree--based Needleman--Wunsch algorithm.
-        nw = pairwise.NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, 
+        nw = NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, 
                                        node_types=self.node_types)
         first_align, second_align = nw.prettify()[1]
         # feed respective alignments into an analysis class and get consensus.
@@ -48,7 +48,7 @@ class MultipleSequenceDriver():
         for i in range(2, len(queries)):
             curr_seq = queries[i]
             print(curr_seq)
-            nw = pairwise.NeedlemanWunsch(s1=composite, s2=curr_seq, 
+            nw = NeedlemanWunsch(s1=composite, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
                                          node_types=self.node_types)
             align_sA, align_sB = nw.prettify()[1]
@@ -95,7 +95,7 @@ class MultipleSequenceDriver():
             # Align each query with composite
             for curr_seq in self.queries:
                 # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
-                #nw = pairwise.NeedlemanWunsch(s1=curr_seq, s2=self.composite, 
+                #nw = NeedlemanWunsch(s1=curr_seq, s2=self.composite, 
                 pw_matcher = pairwise.PositionWeightedMatcher(sequence=curr_seq, pwm=pwm, 
                                     costs=self.costs, node_types=self.node_types)
                 # sequence sA is the query alignment while sB is the composite.
