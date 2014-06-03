@@ -310,7 +310,7 @@ class ContingencyMatrix(AbstractMatrix):
         measures['CF'] = self.get_confidence()
         measures['K'] = self.get_kappa_coefficient()
         measures['PHI'] = self.get_phi_coefficient()
-        measures['p-value'] = self.get_hypergeometric_prob()
+        measures['p-value'] = self.get_hypergeometric_pval()
         measures['n(' + self.__group_a.name + '_baseline)'] = self.get_g_x()
         measures['n(' + self.__group_b.name + '_query)'] = \
             self.get_not_g_x()
