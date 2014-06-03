@@ -38,12 +38,20 @@ def run_msa(queries, input_state):
     if args['random_order']:
         shuffle(queries)
 
-    driver = MultipleSequenceDriver(queries, input_state)
-    driver.build_preconsensus()
-    driver.align() # align sequences and build resultant consensus
-    consensus_fact = ConsensusFilterFactory(driver.alns, args['thresh'], args['type'])
-    consensus_fact.build_consensus()
-    consensus_fact.write(fname=args['build']) # write analysis
+    msa_driver = MultipleSequenceDriver(queries, input_state)
+    # Build composite
+    msa_driver.build_composite()
+    # Align sequences (iteratively if given in params)
+    msa_driver.align()
+    # Build resultant consensus
+    consensus_object = msa_driver.build_consensus(args['thresh'],args['type'])
+    # Write MSA and consensus to file
+    consensus_fact = ConsensusFilterFactory(msa_driver,consensus_object)
+    consensus_fact.write(fname=args['build'])
+
+    #consensus_fact = ConsensusFilterFactory(driver.alns, driver.composite, args['thresh'], args['type'])
+    #consensus_fact.build_consensus()
+    #consensus_fact.write(fname=args['build']) # write analysis
     
 if __name__ == '__main__':
     try:
