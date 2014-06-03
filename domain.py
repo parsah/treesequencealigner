@@ -16,11 +16,11 @@ class DomainSetBuilder():
     '''
     def __init__(self, consensus, win, max_gap, is_strip, is_enum=False, allowable_treeseq_types=None, node_types=sequence.default_nodetypes, min_win=1):
         if isinstance(consensus,str):
-            self.consensus = consensus
+            self.consensus_seq = consensus
         else: # is NeuriteSequence
-            self.consensus = consensus.seq
+            self.consensus_seq = consensus.seq
         if is_strip:
-            self.consensus = self.consensus.replace('-','')
+            self.consensus_seq = self.consensus_seq.replace('-','')
 
         self.is_enumerate = is_enum # enumerate window size and max #/gaps
         self.win = win # sliding-window size
@@ -38,14 +38,14 @@ class DomainSetBuilder():
         # iterate over window and gaps (if enumeration) and identify domains
         domains = {} # key => domain, value => count (abundance)
         for w in wins:
-            if w > len(self.consensus):
+            if w > len(self.consensus_seq):
                 if not self.is_enumerate:
                     raise IOError('-win must be less than consensus length ('+str(len(self.consensus))+')')
                 elif w == max(wins):
-                    warnings.warn('-win ('+str(self.win)+') is larger than consensus length ('+str(len(self.consensus))+'), so only domains of consensus length or smaller will be found.')
+                    warnings.warn('-win ('+str(self.win)+') is larger than consensus length ('+str(len(self.consensus_seq))+'), so only domains of consensus length or smaller will be found.')
             else: # for each window, pull-out the respective domain
-                for idx in range(len(self.consensus)):
-                    sub_str = self.consensus[idx: idx + w] # reference
+                for idx in range(len(self.consensus_seq)):
+                    sub_str = self.consensus_seq[idx: idx + w] # reference
                     num_gap = sub_str.count('-') # count number of gaps
                     # if required, candidate domain must be a complete tree
                     if self.allowable_treeseq_types is None or sequence.tree_sequence_type(sub_str,self.node_types) in self.allowable_treeseq_types:
@@ -186,7 +186,7 @@ class DomainPrettyPrinter():
         handle.write('Domain\tp-value\n') # write header
         handle.flush()
         for i in self.domains:
-            dom_pval = i.get_hypergeometric_prob() # compute domain p-value
+            dom_pval = i.get_hypergeometric_pval() # compute domain p-value
             if dom_pval <= self.pval: # domain must be less than p-value cutoff
                 handle.write(i.name + '\t' + str(round(dom_pval, 6)) + '\n')
                 handle.flush()
@@ -200,17 +200,20 @@ def _extract_domains(targets, is_baseline, input_state, threshold, thresh_type, 
     msa_driver.align()
 
     # Derive consensus
-    consensus_fact = ConsensusFilterFactory(msa_driver.alns,msa_driver.composite, threshold, thresh_type)
-    consensus_fact.build_consensus()
-    if (is_baseline):
-        print('Baseline Consensus: '+str(consensus_fact.consensus).replace('-',''))
-    else:
-        print('Target Consensus: '+str(consensus_fact.consensus).replace('-',''))
+    consensus_obj = msa_driver.build_consensus(threshold,thresh_type)
+    
+    #consensus_fact = ConsensusFilterFactory(msa_driver.alns,msa_driver.composite, threshold, thresh_type)
+    #consensus_fact.build_consensus()
+    #if (is_baseline):
+    #    print('Baseline Consensus: '+str(consensus_fact.consensus).replace('-',''))
+    #else:
+    #    print('Target Consensus: '+str(consensus_fact.consensus).replace('-',''))
 
-    # Extract domains
-    domainBuilder = DomainSetBuilder(consensus_fact.consensus,max_domain_size,max_gap=0,is_strip=True,is_enum=True,allowable_treeseq_types=['complete_tree','incomplete_tree'],min_win=min_domain_size)
+    # Extract domains (consensus_obj.consensus is already stripped of - chars)
+    domainBuilder = DomainSetBuilder(consensus_obj.consensus,max_domain_size,0,True,is_enum=True,allowable_treeseq_types=['complete_tree','incomplete_tree'],min_win=min_domain_size)
+
     domains = domainBuilder.build()
-    return is_baseline, domains, consensus_fact.consensus
+    return is_baseline, domains, consensus_obj.consensus
 
 def merge_counts(counts1, counts2):
     merged_counts = {}
@@ -229,7 +232,7 @@ class DomainExtractionDriver():
     target and baseline sets, then compiles the list of unique domains and how frequently each occurs
     in either set.
     '''
-    def __init__(self,targets,baselines,node_types,subsmat,num_runs,input_state):
+    def __init__(self,targets,baselines,node_types,subsmat,num_runs,input_state,debug=0):
         self.targets = targets
         self.baselines = baselines
         self.node_types = node_types
@@ -242,6 +245,7 @@ class DomainExtractionDriver():
         self.baseline_domains = {}
         self.target_consensuses = []
         self.baseline_consensuses = []
+        self.debug=debug
     
     def start(self):
         status_message('Multiple alignment running','please wait')
@@ -249,13 +253,18 @@ class DomainExtractionDriver():
         executor = concurrent.futures.ProcessPoolExecutor(args['n'])
         try:
             for i in range(self.num_runs):
+                if self.debug >= 1:
+                    print("DomainExtractionDriver: Run "+str(i+1)+" of "+str(self.num_runs))
                 targets_sub = generate_sequence_set(self.targets,args['subsample'],args['random_subset'],args['random_order'],args['subsample_start'])
                 f = executor.submit(_extract_domains, targets_sub, is_baseline=False,
                                     input_state=self.input_state, threshold=args['thresh'],
                                     thresh_type=args['type'], max_domain_size=args['win'], min_domain_size=args['minwin'])
                 f.add_done_callback(self._callback)
 
-                baselines_sub = generate_sequence_set(self.baselines,args['subsample'],args['random_subset'],args['random_order'],args['subsample_start'])
+                disallowed = []
+                if args['disjoint_subset']:
+                    disallowed = targets_sub
+                baselines_sub = generate_sequence_set(self.baselines,args['subsample'],args['random_subset'],args['random_order'],args['subsample_start'],disallowed=disallowed)
                 f = executor.submit(_extract_domains, baselines_sub, is_baseline=True,
                                     input_state=self.input_state, threshold=args['thresh'],
                                     thresh_type=args['type'], max_domain_size=args['win'], min_domain_size=args['minwin'])
@@ -268,11 +277,14 @@ class DomainExtractionDriver():
             executor.shutdown()
 
     def _callback(self, return_val):
-#        cbexcept = return_val.exception()
-#        if cbexcept is not None:
-#            print("Err1: "+str(cbexcept))
+        cbexcept = return_val.exception()
+        if cbexcept is not None:
+            print("Err1: "+str(cbexcept))
 
         is_baseline, domains, consensus = return_val.result()
+
+        if self.debug >= 1:
+            print("Completed a DED run")
         
         # Merge domain counts for current iteration with those from other iterations
         if is_baseline:
@@ -285,3 +297,5 @@ class DomainExtractionDriver():
         # Add domains to complete set of domains
         self.domain_set.update(domains.keys())
 
+    def set_debug(self,val):
+        self.debug=val
