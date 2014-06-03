@@ -22,7 +22,7 @@ class TreeIndexLogic():
 
 class TreeLogicFactory():
     '''
-    Parses and processes the consensus string to ultimately yield a single
+    Parses and processes the composite string to ultimately yield a single
     string which encapsulate the pairwise alignment.
     '''
     def __init__(self, str1, str2):
@@ -31,15 +31,15 @@ class TreeLogicFactory():
         
     def get_alignment(self):
         ''' 
-        Simple function to merge two strings and produce a consensus.
-        @return: NeuriteSequence object representing the consensus sequence.
+        Simple function to merge two strings and produce a composite.
+        @return: NeuriteSequence object representing the composite sequence.
         '''
-        consensus = ''
+        composite = ''
         for idx, char1 in enumerate(self.str1):
             char2 = self.str2[idx]
             if char1 == self.str2[idx]:
-                consensus += char1
+                composite += char1
             else:
                 # Apply neuronal logic given two specific characters.
-                consensus += TreeIndexLogic(char1, char2).get()
-        return NeuriteSequence(name='alignment', seq=consensus)
+                composite += TreeIndexLogic(char1, char2).get()
+        return NeuriteSequence(name='composite alignment', seq=composite)
