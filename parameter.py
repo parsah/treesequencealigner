@@ -51,24 +51,16 @@ class AlignmentArgumentValidator():
 
     # Checks user-provided arguments are valid
     def check_args(self):
-        return all([self.test_num_workers(), self.test_mutual_matrices(),
+        return all([self.test_num_workers(),
                 self.test_valid_matrix(), self.test_threshold()])
-
-    # Test either a custom matrix or in-built matrix is selected
-    def test_mutual_matrices(self):
-        if self.args['custom'] and self.args['matrix']:
-            raise IOError('Either a custom or in-built matrix must be selected')
-        else:
-            return True
 
     # Test a valid substitution matrix is selected
     def test_valid_matrix(self):
-        all_matrices = set(MatrixInfo.available_matrices) # al sub. matrices
-        if self.args['matrix'] in all_matrices or self.args['custom']:
+        #all_matrices = set(MatrixInfo.available_matrices) # al sub. matrices
+        if self.args['custom']:
             return True
         else:
-            err = 'An in-built (URL below) or custom matrix is required.\n'+\
-            'http://biopython.org/DIST/docs/api/Bio.SubsMat.MatrixInfo-module.html'
+            err = 'A custom matrix is required.'
             raise IOError(err)
 
     # Test a valid number of workers are provided
@@ -128,11 +120,14 @@ class AlignmentCommandParser():
         
         param_msa.add_argument('-build', metavar='FILE', default='alns.xml', 
                     type=str, help='Output file of consensus & alignments [./alns.xml]')
+
+        param_msa.add_argument('-iterate', metavar='FLOAT', default=1, type=float,
+                    help='Number of MSA iterations (using a PWM) or threshold for change in 40% composite score to continue iterating [1]')
         
-        param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
+        param_opts.add_argument('-subsample', metavar='FLOAT', default=1, type=float, 
                     help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
 
-        param_opts.add_argument('--subsample_start', metavar='FLOAT', default=0, type=float, 
+        param_opts.add_argument('-subsample_start', metavar='FLOAT', default=0, type=float, 
                     help='If taking a subsample, subsample_start determines from which sequence to start the subset (as proportion or explicit number, indexed from 0). If size and start of subsample lead to an exhaustion of the available sequences an error will be be displayed.')
         
         param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
@@ -246,23 +241,59 @@ class DomainCommandParser():
         
         param_msa.add_argument('-gapopen', metavar='INT', default=0, type=int,
                     help='Gap open penalty [0]')
-        
-        
-        param_opts.add_argument('--subsample', metavar='FLOAT', default=1, type=float, 
-                    help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N].')
 
-        param_opts.add_argument('--subsample_start', metavar='FLOAT', default=0, type=float, 
+        param_msa.add_argument('-iterate', metavar='FLOAT', default=1, type=float,
+                    help='Number of MSA iterations (using a PWM) or threshold for change in 40% composite score to continue iterating [1]')
+        
+        param_opts.add_argument('--overlap', action='store_const', const=True, default=False,
+                    help='Allow query and baseline sets to contain the same sequences. If false, remove overlapping sequences from baseline set [False]')
+
+        param_opts.add_argument('--disjoint_subset', action='store_const', const=True, default=False,
+                    help='Ensure that baseline subset contains no sequences from query subset [False]')
+        
+        param_opts.add_argument('-subsample', metavar='FLOAT', default=1, type=float, 
+                    help='Subsample of data, taking the first n sequences. Value treated as proportion of total if (0,1] and explicit number for [2,N]')
+
+        param_opts.add_argument('-subsample_start', metavar='FLOAT', default=0, type=float, 
                     help='If taking a subsample, subsample_start determines from which sequence to start the subset (as proportion or explicit number, indexed from 0). If size and start of subsample lead to an exhaustion of the available sequences an error will be be displayed.')
         
         param_opts.add_argument('--random_subset', action='store_const', const=True, default=False,
-                    help='Subset is a random sample of data (shuffle sequences before taking subset).')
+                    help='Subset is a random sample of data (shuffle sequences before taking subset) [False]')
 
         param_opts.add_argument('--random_order', action='store_const', const=True, default=False,
-                    help='Order of sequences (in subsample of data if using --subset) is shuffled.')
+                    help='Order of sequences (in subsample of data if using --subset) is shuffled [False]')
 
         param_opts.add_argument('-n', metavar='INT', default=2, type=int,
                     help='Number of worker processes [2]')
 
+        param_opts.add_argument('-h','--help', action='help',
+                    help='Show this help screen and exit')
+    
+    def parse_args(self):
+        return vars(self.parser.parse_args()) # parse arguments
+
+class ConsensusStatsCommandParser():
+    def __init__(self):
+        desc = 'Statistics of neurite multiple sequence alignments.'
+        u='%(prog)s [options]' # command-line usage
+        self.parser = argparse.ArgumentParser(description=desc, add_help=False, usage=u)
+        self._init_params()
+
+    def _init_params(self):
+        param_reqd = self.parser.add_argument_group('Required parameters')
+        param_opts = self.parser.add_argument_group('Optional parameters')
+
+        # Domain-specific parameters
+#        param_reqd.add_argument('-mode', metavar='MODE',
+#                    choices=['?','?'],
+#                    help='Analysis mode {?}')
+
+        param_reqd.add_argument('-build', metavar='BUILD', 
+                    help='XML build file containing composite, consensus, and MSA [na]')
+
+        param_reqd.add_argument('-newick', metavar='BUILD', default=None,
+                    help='Newick file for output build file [None]')
+        
         param_opts.add_argument('-h','--help', action='help',
                     help='Show this help screen and exit')
     
@@ -352,8 +383,11 @@ class InputWrapperState():
                     submat[(a, b)] = score
         return submat
 
-def generate_sequence_set(sequences,num_seqs=0,random_set=False,random_order=True,seq_start=0):
+def generate_sequence_set(sequences,num_seqs=0,random_set=False,random_order=True,seq_start=0,disallowed=[]):
     sequence_set = sequences
+    if len(disallowed) > 0:
+        # Remove any disallowed sequences from the sequence set
+        sequence_set = list([sequence for sequence in sequences if sequence.name not in list([dis_seq.name for dis_seq in disallowed])])
 
 #    print("Num_seqs: "+str(num_seqs)+"; RandomSet: "+str(random_set)+"; RandomOrder: "+str(random_order))
 
