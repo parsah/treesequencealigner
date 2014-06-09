@@ -1,6 +1,7 @@
 from pairwise import NeedlemanWunsch, PositionWeightedMatcher
 import math
 from sequence import NeuriteSequence
+import concurrent.futures
 import sequence
 from collections import Counter
 # from random import shuffle
@@ -25,6 +26,9 @@ class MultipleSequenceDriver():
         self.pwm = None
         self.node_types = input_state.node_types
         self.consensus_check_percent = .4
+        self.num_workers = input_state.get_args()['n']
+
+        self.composite_alignments = []
 
     def build_composite(self):
         ''' 
@@ -32,7 +36,9 @@ class MultipleSequenceDriver():
         alignment a composite (formerly "pre-consensus"). Every sequence thereof is then 
         subsequently pairwise-aligned to this composite.
         '''
-        
+
+        print("Building composite")
+
         queries = self.queries
         # get the first two input sequences
         s0 = queries[0]
@@ -41,17 +47,29 @@ class MultipleSequenceDriver():
         nw = NeedlemanWunsch(s1=s0, s2=s1, costs=self.costs, submat=self.submat, 
                                        node_types=self.node_types)
         first_align, second_align = nw.prettify()[1]
+        self.composite_alignments.append([nw.align1,nw.align2])
+        
         # feed respective alignments into an analysis class and get consensus.
         composite = TreeLogicFactory(str1=first_align, 
                                        str2=second_align).get_alignment()
+#        print("Seq1: "+first_align)
+#        print("Seq2: "+second_align)
+
+#        print("Comp: "+composite.seq)
+
         # since the first two sequences have been aligned, focus on all others.
         for i in range(2, len(queries)):
             curr_seq = queries[i]
-            print(curr_seq)
             nw = NeedlemanWunsch(s1=composite, s2=curr_seq, 
                                          costs=self.costs, submat=self.submat, 
                                          node_types=self.node_types)
-            align_sA, align_sB = nw.prettify()[1]
+
+            align_sA, align_sB = nw.get_alignment()
+
+            self.composite_alignments.append([align_sA,align_sB])
+            #print(align_sA)
+            #print(align_sB)
+
             composite = TreeLogicFactory(str1=align_sA, 
                                        str2=align_sB).get_alignment()
             self.composite = composite # of type NeuriteSequence
@@ -84,7 +102,8 @@ class MultipleSequenceDriver():
         continue_iter = True
         iter_count = 0
         change = 1
-        consensus_check_score = 0
+        consensus_conservation_score = 0
+        #total_score_over_threshold = 0
         prev_consensus_score = 0
         # Iternate until change in consensus strength is sufficiently small or some number of iterations have been run
         while iterate < 1 and change > iterate or iterate >= 1 and iter_count < iterate:
@@ -92,37 +111,40 @@ class MultipleSequenceDriver():
 
 #        for curr_it in range(iterate_count):
             self.alns = [] # New alignments at each iteration, final iteration gives final alignment
-            # Align each query with composite
-            for curr_seq in self.queries:
-                # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
-                #nw = NeedlemanWunsch(s1=curr_seq, s2=self.composite, 
-                pw_matcher = PositionWeightedMatcher(sequence=curr_seq, pwm=pwm, 
-                                    costs=self.costs, node_types=self.node_types)
-                # sequence sA is the query alignment while sB is the composite.
-                # we only need sA because sB does not change; all sequences are
-                # mapped to this and therefore the resultant alignment is desired.
+            executor = concurrent.futures.ProcessPoolExecutor(self.num_workers)
+            try:
+                # Align each query with composite
+                for curr_seq in self.queries:
+                    # Get name lengths for position aligning names in alignment file output
+                    if iterate is None or iter_count == iterate-1:
+                        name_lengths.append(len(curr_seq.name))
 
-                align_sA, _ = pw_matcher.prettify()[1]
-                self.alns.append(align_sA)
+                    # Setting 'consensus=2' tells NW that s2 is the consensus and will prevent gaps from appearing in s1 alignemtn
 
-                if iterate is None or iter_count == iterate-1:
-                    name_lengths.append(len(curr_seq.name))
+                    #pw_matcher = PositionWeightedMatcher(sequence=curr_seq, pwm=pwm, 
+                    #                    costs=self.costs, node_types=self.node_types)
+
+                    f = executor.submit(PositionWeightedMatcher,sequence=curr_seq, pwm=pwm, 
+                                        costs=self.costs, node_types=self.node_types)
+                    f.add_done_callback(self._msa_callback)
+                executor.shutdown()
+            except KeyboardInterrupt:
+                executor.shutdown()
+                print("MSA Iteration interupted, stopping program")
+                change = iterate + 1
+                iter_count = iterate
 
             # Get the PWM given the alignments for the next iteration
             pwm = self.get_pwm()
 
             # Calculate change between previous and current alignment (even if not required)
-            prev_consensus_score = consensus_check_score
+            prev_consensus_score = consensus_conservation_score
             consensus_check_obj = self.build_consensus(threshold_ratio=self.consensus_check_percent)
-            consensus_check_score = consensus_check_obj.score
-            change = consensus_check_score - prev_consensus_score
-#            if iterate < 1:
+            consensus_conservation_score = consensus_check_obj.conservation_score
+            change = consensus_conservation_score - prev_consensus_score
 
-            #print('\n'+consensus_check_obj.raw_consensus)
-            #print(str(consensus_check_score))
-            #for aln in self.alns:
-            #    print(aln)
-        
+            print("MSA Iteration "+str(iter_count)+"; consensus score: "+str(consensus_check_score))        
+
         # Write alignments to file
         if self.alignment_file:
             total_space = max(12,max(name_lengths))+1
@@ -130,6 +152,16 @@ class MultipleSequenceDriver():
             for index,curr_seq in enumerate(self.queries):
                 align_handle.write(curr_seq.name+(' '*(total_space-len(curr_seq.name)))+(''.join(self.alns[index]))+'\n') # write header
             align_handle.close()
+
+    def _msa_callback(self, return_val):
+        cbexcept = return_val.exception()
+        if cbexcept is not None:
+            print("Error: "+str(cbexcept))
+        pw_matcher = return_val.result()
+        align_sA = pw_matcher.get_alignment()[0]
+        self.alns.append(align_sA)
+
+        
 
     # Generate a position weighted matrix of the form: array of {character:weight}
     def get_pwm(self):        
@@ -193,6 +225,7 @@ class MultipleSequenceDriver():
         consensus = None # actual generated consensus sequence 
         consensus_counts = []
         consensus_score = 0
+        #score_over_threshold = 0
 
         # store consensus as list (initially) so characters can be easily
         # placed easily; akin to array indexing.
@@ -237,16 +270,29 @@ class MultipleSequenceDriver():
             #####################################################
             #### Logic for when 2 bases are found in a column ###
             #####################################################
-            # This case should never happen. We could put in an error condition here...
-            #if 'C' in char_counts and 'T' in char_counts:
-            #    # we get the counts for both C and T, and contrast their
-            #    # respective scores; assigning to the consensus whichever is
-            #    # not only the largest score but also exceed the threshold.
-            #    count_C, count_T = char_counts['C'], char_counts['T']
-            #    if count_C >= count_T and count_C >= self.threshold:
-            #        consensus[col_num] = 'C' # select C over T
-            #    elif count_T >= count_C and count_T >= self.threshold:
-            #        consensus[col_num] = 'T' # select T over C
+            # This case should never happen, so we have an error condition
+            if 'C' in char_counts and 'T' in char_counts:
+                # Determine offending sequence and report in error message
+                composite_is_t = self.composite.seq[col_num] == 'T'
+                offender = None
+                for alignment_ind in range(len(self.alns)):
+                    #print(str(alignment_ind)+' '+str(self.composite_alignments[max(alignment_ind-1,0)][0])+'\n'+str(self.composite_alignments[max(alignment_ind-1,0)][1]))
+                    alignment = self.alns[alignment_ind]
+                    if (alignment[col_num] == 'T') ^ composite_is_t:
+                        offender = alignment
+                        offender_ind = alignment_ind
+                        print('offender index: '+str(offender_ind))
+                if offender == None:
+                    raise Exception('C and T nodes found in the same column\nPWM: '+str(self.pwm.pwm)+'\nOffender undetected')
+                else:
+                    raise Exception('C and T nodes found in the same column')
+                    #raise Exception('C and T nodes found in the same column\nPWM: '+str(self.pwm.pwm)+'\nComposite: '+self.composite.seq+'\nErrSeq: '+offender+'\n'+str(self.composite_alignments[max(offender_ind-1,0)][0])+'\n'+str(self.composite_alignments[max(offender_ind-1,0)][1])+'\n'+self.queries[offender_ind].seq)
+
+                count_C, count_T = char_counts['C'], char_counts['T']
+                if count_C >= count_T and count_C >= self.threshold:
+                    consensus[col_num] = 'C' # select C over T
+                elif count_T >= count_C and count_T >= self.threshold:
+                    consensus[col_num] = 'T' # select T over C
             # choosing the better of A or C
             if 'C' in char_counts and 'A' in char_counts:
                 # we get the counts for both C and A, and contrast their
@@ -258,11 +304,12 @@ class MultipleSequenceDriver():
                     consensus[col_num] = 'C' # There aren't enough A's, but there are enough characters
 
         consensus = NeuriteSequence(name='consensus', seq=''.join(consensus))
-        consensus_score = float(count_sum)/height/consensus_length
+        conservation_score = float(count_sum)/height/consensus_length
         consensus_counts = consensus_counts
         #consensus_object = Consensus(consensus,consensus_score,consensus_counts)
-        consensus_object = Consensus(consensus,threshold_ratio,threshold_type,height,consensus_score)
+        consensus_object = Consensus(consensus,threshold_ratio,threshold_type,height,conservation_score)
         return consensus_object
+        
 
 class PositionWeightedMatrix():
     '''
@@ -280,13 +327,13 @@ class Consensus():
     '''
     Contains a gapped and ungapped version of the consensus given an MSA and threshold values
     '''
-    def __init__(self,consensus,threshold_ratio,threshold_type,height,score):
+    def __init__(self,consensus,threshold_ratio,threshold_type,height,conservation_score=None):
         self.raw_consensus = consensus.seq
         self.consensus = consensus.seq.replace('-','')
         self.threshold_ratio = threshold_ratio
         self.threshold_type = threshold_type
         self.height = height
-        self.score = score
+        self.conservation_score = conservation_score
     
     def get_threshold_count(self):
         if self.threshold_type == 'sqrt':

@@ -82,7 +82,7 @@ class ConsensusSequence(NeuriteSequence):
         super(ConsensusSequence, self).__init__(name, seq)
         self.num_gaps = 0
         self.threshold = threshold
-        self.score = score
+        self.conservation_score = conservation_score
         self.ungapped_consensus = seq.replace('-','')
         
 tree_sequence_types = ['complete_tree','incomplete_tree','multiple_trees_complete','multiple_trees_incomplete']

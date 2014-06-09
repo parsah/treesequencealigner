@@ -276,6 +276,7 @@ class NeedlemanWunsch():
 	# Calculates the gap cost in a given direction from a given position, which depends on the node type
 	def calculate_gap(self,i,j,seq1,seq2,m,directionM,dirScoreM,TADict,gap_direction):
 		isExtend = False
+		a_c_match = False
 		# CType: gap one
 		if self.node_types[seq1[i-1]] == 'C':
 			# The prior position assuming a gap (index based on m)
@@ -321,13 +322,17 @@ class NeedlemanWunsch():
 
 				# Determine which gap produces a higher overall score, and use that for this position's gap score
 				if gapScoreACFinish is not None and (gapScoreGapFinish is None or gapScoreACFinish >= gapScoreGapFinish):
+					# Best score achieved if gap finishes with A-C match
 					gapScore = gapScoreACFinish
 					gapPosj = j-1
 					isExtend = False
+					a_c_match = True
 				elif gapScoreGapFinish is not None:
+					# Best score achieved if gap includes the associated A
 					gapScore = gapScoreGapFinish
 					gapPosj = j
 				else:
+					# Gap cannot be completed
 					gapScore = None
 					gapPosj = j
 					isExtend = False
@@ -341,6 +346,7 @@ class NeedlemanWunsch():
 			gapPosj = None 
 		dirScoreM.score.set_data(i,j, gapScore)
 		dirScoreM.extend_flag.set_data(i,j, isExtend)
+		dirScoreM.a_c_match.set_data(i,j, a_c_match)
 		return [gapScore, gapPosi, gapPosj]
 
 	# Execute alignment
@@ -352,20 +358,34 @@ class NeedlemanWunsch():
 		self.leftMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1')) 
 		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1) #numpy.zeros((l1+1, l2+1), dtype=('f16,b1'))
 		self.scoreMat.set_data(0,0, 0)
+
+		a_count = 0
 		for i in range(1, l1 + 1): # set each row by the desired gap
 			if self.composite != 2:
-				self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
+				# Update A(subtree) count
+				a_count += 1 if self.seq1.seq[i-1] == 'A' else -1 if self.seq1.seq[i-1] == 'T' else 0
+				if a_count > 0: # Gap cannot start within a subtree
+					self.scoreMat.set_data(i,0, None)
+				else:
+					self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
 			else:
 				self.scoreMat.set_data(i,0, None)
-			self.leftMat.score.set_data(i,0, None) #[0] = None
+			self.leftMat.score.set_data(i,0, None)
 			self.upMat.score.set_data(i,0, None)
+		a_count = 0
 		for j in range(1, l2 + 1): # set each column by the desired gap
 			if self.composite != 1:
-				self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
+				# Update A(subtree) count
+				a_count += 1 if self.seq2.seq[j-1] == 'A' else -1 if self.seq2.seq[j-1] == 'T' else 0
+				if a_count > 0: # Gap cannot start within a subtree
+					self.scoreMat.set_data(0,j, None)
+				else:
+					self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
 			else:
 				self.scoreMat.set_data(0,j, None)
-			self.leftMat.score.set_data(0,j, None) #[0] = None
+			self.leftMat.score.set_data(0,j, None)
 			self.upMat.score.set_data(0,j, None)
+
 		for i in range(1, l1+1): # per base-pair in sequence 1 ...
 			for j in range(1, l2+1): # per base-pair in sequence 2, align them
 			
@@ -425,39 +445,50 @@ class NeedlemanWunsch():
 				else:
 					# This location is unreachable due to presence of a composite sequence
 					self.scoreMat.set_data(i,j,None)
-		i, j = l1, l2 # for trace-back process 
+
+		# Backtrace
+		i, j = l1, l2
 		keepGapping = 0
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
+			# Use next_i and next_j to keep track of backtrace position while holding on to current round's starting point
+			next_i, next_j = i, j
 			# if score is a gap in sequence 2 (direction is 1), only walk back on i
 			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
 				# If the node being gapped is a T-node, appropriately gap the entire subtree
 				if self.node_types[self.seq1.seq[i-1]] == 'T':
-					# Get previ and prevj depending on whether "forced" gapping or not
+					# Get i_target and j_target depending on whether "forced" gapping or not
 					if keepGapping == 1:
-						previ = self.TADict1[i-1]
-						prevj = j
+						# Determine whether T-gapping has includes the A node or matches A-C
+						i_target = self.TADict1[i-1]
+						if self.leftMat.a_c_match.get_data(i,j) == True:
+							j_target = j-1
+						else:
+							j_target = j
 					else:
-						previ = self.backPos[i,j][0]
-						prevj = self.backPos[i,j][1]
+						i_target = self.backPos[i,j][0]
+						j_target = self.backPos[i,j][1]
 
-					while i > previ+1: # Walk back with gaps until the one position greater than the final position
-						self.align1 += self.seq1.seq[i-1]
+					while next_i > i_target+1: # Walk back with gaps until the one position greater than the final position
+						self.align1 += self.seq1.seq[next_i-1]
 						self.align2 += '-'
-						i -= 1
-					if keepGapping != 1 and prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
-						self.align1 += self.seq1.seq[i-1]
-						self.align2 += self.seq2.seq[j-1]
-						i -= 1
-						j -= 1
+						next_i -= 1
+
+					# If j_target < next_j, then the gap is preceeded by an A-C match, so add that to the alignment
+					if j_target < next_j:
+						self.align1 += self.seq1.seq[next_i-1]
+						self.align2 += self.seq2.seq[next_j-1]
+						next_i -= 1
+						next_j -= 1
 					else: # otherwise the A is also gapped
-						self.align1 += self.seq1.seq[i-1]
+						self.align1 += self.seq1.seq[next_i-1]
 						self.align2 += '-'
-						i -= 1
+						next_i -= 1
+
 				# otherwise just gap the current node (it will be a C-node)
 				else:
-					self.align1 += self.seq1.seq[i-1]
+					self.align1 += self.seq1.seq[next_i-1]
 					self.align2 += '-'
-					i -= 1
+					next_i -= 1
 					
 				# Check whether the choice of gapping left requires the leftward position to also gap left
 				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
@@ -468,31 +499,35 @@ class NeedlemanWunsch():
 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
 			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
 				if self.node_types[self.seq2.seq[j-1]] == 'T':
-					# Get previ and prevj depending on whether "forced" gapping or not
+					# Get i_target and j_target depending on whether "forced" gapping or not
 					if keepGapping == 2:
-						previ = i
-						prevj = self.TADict2[j-1]
+						# Determine whether T-gapping has includes the A node or matches A-C
+						j_target = self.TADict2[j-1]
+						if self.upMat.a_c_match.get_data(i,j) == True:
+							i_target = i-1
+						else:
+							i_target = i
 					else:
-						previ = self.backPos[i,j][0]
-						prevj = self.backPos[i,j][1]
+						i_target = self.backPos[i,j][0]
+						j_target = self.backPos[i,j][1]
 						
-					while j > prevj+1:
+					while next_j > j_target+1:
 						self.align1 += '-'
-						self.align2 += self.seq2.seq[j-1]
-						j -= 1
-					if keepGapping != 2 and previ < i:
-						self.align1 += self.seq1.seq[i-1]
-						self.align2 += self.seq2.seq[j-1]
-						i -= 1
-						j -= 1
+						self.align2 += self.seq2.seq[next_j-1]
+						next_j -= 1
+					if keepGapping != 2 and i_target < next_i:
+						self.align1 += self.seq1.seq[next_i-1]
+						self.align2 += self.seq2.seq[next_j-1]
+						next_i -= 1
+						next_j -= 1
 					else:
 						self.align1 += '-'
-						self.align2 += self.seq2.seq[j-1]
-						j -= 1
+						self.align2 += self.seq2.seq[next_j-1]
+						next_j -= 1
 				else:
 					self.align1 += '-'
-					self.align2 += self.seq2.seq[j-1]
-					j -= 1
+					self.align2 += self.seq2.seq[next_j-1]
+					next_j -= 1
 					
 				# Check whether the choice of gapping up requires the leftward position to also gap up
 				if self.upMat.extend_flag.get_data(i,j) == True:
@@ -505,8 +540,10 @@ class NeedlemanWunsch():
 				keepGapping = 0
 				self.align1 += self.seq1.seq[i-1]
 				self.align2 += self.seq2.seq[j-1]
-				i -= 1
-				j -= 1
+				next_i -= 1
+				next_j -= 1
+				
+			i, j = next_i, next_j
 		
 		# walk-back to index 0 for both i and j; either could be reached first
 		while i > 0:
@@ -583,7 +620,8 @@ class PositionWeightedMatcher():
 		if dirScoreM.score.get_data(i,j) is None:#[0]): # Previous position can't gap
 			gapScore += self.costs['gapopen']
 			scoreExtendPair = gapScore,False
-		elif directionM.get_data(i,j) is not gap_direction: # Previous position didn't choose gap
+		elif directionM.get_data(i,j) is not gap_direction: # Previous position didn't choose gap in the same direction
+			# Determine what the score would be if the previous position did gap in the same direction
 			extendGapScore = dirScoreM.score.get_data(i,j) + currentGapCost
 			openGapScore = gapScore + self.costs['gapopen']
 			if openGapScore >= extendGapScore: # new gap is best, go with previous position's choice
@@ -598,6 +636,7 @@ class PositionWeightedMatcher():
 	# Calculates the gap cost in a given direction from a given position, which depends on the node type
 	def calculate_gap(self,i,j,seq1,seq2,m,directionM,dirScoreM,TADict,gap_direction):
 		isExtend = False
+		a_c_match = False
 		# CType: gap one
 		if self.node_types[seq1[i-1]] == 'C':
 			# The prior position assuming a gap (index based on m)
@@ -612,7 +651,7 @@ class PositionWeightedMatcher():
 														self.costs['gap'],
 														gap_direction)
 
-		# TType: gap until paired A
+		# T-type: gap until paired A
 		elif self.node_types[seq1[i-1]] == 'T': 
 			# The prior position assuming a gap (index based on m)
 			gapPosi = TADict[i-1]
@@ -639,6 +678,7 @@ class PositionWeightedMatcher():
 					ACScore = self.get_score(j-1,seq1[gapPosi])
 				else:
 					ACScore = self.get_score(gapPosi,seq2[j-1])
+
 				if m.get_data(gapPosi,j-1) is None:
 					gapScoreACFinish = None
 				else:
@@ -649,9 +689,11 @@ class PositionWeightedMatcher():
 					gapScore = gapScoreACFinish
 					gapPosj = j-1
 					isExtend = False
+					a_c_match = True
 				elif gapScoreGapFinish is not None:
 					gapScore = gapScoreGapFinish
 					gapPosj = j
+					# isExtend depends on result of determine_open_extend
 				else:
 					gapScore = None
 					gapPosj = j
@@ -660,12 +702,14 @@ class PositionWeightedMatcher():
 			else:
 				gapScore = gapScoreGapFinish
 				gapPosj = j
-		else: # AType, no gapping allowed
+				# isExtend depends on result of determine_open_extend
+		else: # A-type, no gapping allowed
 			gapScore = None # original was set to None
 			gapPosi = None
 			gapPosj = None 
 		dirScoreM.score.set_data(i,j, gapScore)
 		dirScoreM.extend_flag.set_data(i,j, isExtend)
+		dirScoreM.a_c_match.set_data(i,j, a_c_match)
 		return [gapScore, gapPosi, gapPosj]
 
 	# Execute alignment
@@ -677,16 +721,30 @@ class PositionWeightedMatcher():
 		self.leftMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1)
 		self.upMat = DirectionalMatrixWrapper(nrows=l1+1, ncols=l2+1)
 		self.scoreMat.set_data(0,0, 0)
+		a_count = 0
 		for i in range(1, l1 + 1): # set each row by the desired gap
 			if self.allow_pwm_gaps:
-				self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
+				# Update A(subtree) count
+				a_count += 1 if self.seq1.seq[i-1] == 'A' else -1 if self.seq1.seq[i-1] == 'T' else 0
+				if a_count > 0: # Gap cannot start within a subtree
+					self.scoreMat.set_data(i,0, None)
+				else:
+					self.scoreMat.set_data(i,0, self.costs['gap'] * i + self.costs['gapopen'])
 			else:
 				self.scoreMat.set_data(i,0, None)
-			self.leftMat.score.set_data(i,0, None) #[0] = None
+			self.leftMat.score.set_data(i,0, None)
 			self.upMat.score.set_data(i,0, None)
+		a_count = 0
 		for j in range(1, l2 + 1): # set each column by the desired gap
-			self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
-			self.leftMat.score.set_data(0,j, None) #[0] = None
+			# Update A(subtree) count
+			a_count += 1 if self.seq2.seq[j-1] == 'A' else -1 if self.seq2.seq[j-1] == 'T' else 0
+			if a_count > 0: # Gap cannot start within a subtree
+				self.scoreMat.set_data(0,j, None)
+			else:
+				self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
+
+			#self.scoreMat.set_data(0,j, self.costs['gap'] * j + self.costs['gapopen'])
+			self.leftMat.score.set_data(0,j, None)
 			self.upMat.score.set_data(0,j, None)
 
 		for i in range(1, l1+1): # per base-pair in sequence 1 ...
@@ -753,36 +811,45 @@ class PositionWeightedMatcher():
 		i, j = l1, l2 # for trace-back process 
 		keepGapping = 0
 		while i > 0 and j > 0: # walk-back to the index [0][0] of the m
+			# Use next_i and next_j to keep track of backtrace position while holding on to current round's starting point
+			next_i, next_j = i, j
+
+			#if j == 1106:
+			#	print(self.seq1.seq[i-1]+'vs'+self.seq2.seq[j-1]+'; keepGapping: '+str(keepGapping)+'; acMatch: '+str(self.upMat.a_c_match.get_data(i,j)))
+
 			# if score is a gap in sequence 2 (direction is 1), only walk back on i
 			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
 				# If the node being gapped is a T-node, appropriately gap the entire subtree
 				if self.node_types[self.seq1.seq[i-1]] == 'T':
-					# Get previ and prevj depending on whether "forced" gapping or not
+					# Get i_target and j_target depending on whether "forced" gapping or not
 					if keepGapping == 1:
-						previ = self.TADict1[i-1]
-						prevj = j
+						i_target = self.TADict1[i-1]
+						if self.leftMat.a_c_match.get_data(i,j) == True:
+							j_target = j-1
+						else:
+							j_target = j
 					else:
-						previ = self.backPos[i,j][0]
-						prevj = self.backPos[i,j][1]
+						i_target = self.backPos[i,j][0]
+						j_target = self.backPos[i,j][1]
 
-					while i > previ+1: # Walk back with gaps until the one position greater than the final position
-						self.align += self.seq1.seq[i-1]
+					while next_i > i_target+1: # Walk back with gaps until the one position greater than the final position
+						self.align += self.seq1.seq[next_i-1]
 						self.pwm_align += '-'
-						i -= 1
-					if keepGapping != 1 and prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
-						self.align += self.seq1.seq[i-1]
-						self.pwm_align += self.seq2.seq[j-1]
-						i -= 1
-						j -= 1
+						next_i -= 1
+					if j_target < j: # If j_target < j, then the gap is preceeded by an A-C match, so add that to the alignment
+						self.align += self.seq1.seq[next_i-1]
+						self.pwm_align += self.seq2.seq[next_j-1]
+						next_i -= 1
+						next_j -= 1
 					else: # otherwise the A is also gapped
-						self.align += self.seq1.seq[i-1]
+						self.align += self.seq1.seq[next_i-1]
 						self.pwm_align += '-'
-						i -= 1
+						next_i -= 1
 				# otherwise just gap the current node (it will be a C-node)
 				else:
-					self.align += self.seq1.seq[i-1]
+					self.align += self.seq1.seq[next_i-1]
 					self.pwm_align += '-'
-					i -= 1
+					next_i -= 1
 					
 				# Check whether the choice of gapping left requires the leftward position to also gap left
 				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
@@ -793,31 +860,34 @@ class PositionWeightedMatcher():
 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
 			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
 				if self.node_types[self.seq2.seq[j-1]] == 'T':
-					# Get previ and prevj depending on whether "forced" gapping or not
+					# Get i_target and j_target depending on whether "forced" gapping or not
 					if keepGapping == 2:
-						previ = i
-						prevj = self.TADict2[j-1]
+						if self.upMat.a_c_match.get_data(i,j) == True:
+							i_target = i-1
+						else:
+							i_target = i
+						j_target = self.TADict2[j-1]
 					else:
-						previ = self.backPos[i,j][0]
-						prevj = self.backPos[i,j][1]
+						i_target = self.backPos[i,j][0]
+						j_target = self.backPos[i,j][1]
 						
-					while j > prevj+1:
+					while next_j > j_target+1:
 						self.align += '-'
-						self.pwm_align += self.seq2.seq[j-1]
-						j -= 1
-					if keepGapping != 2 and previ < i:
-						self.align += self.seq1.seq[i-1]
-						self.pwm_align += self.seq2.seq[j-1]
-						i -= 1
-						j -= 1
+						self.pwm_align += self.seq2.seq[next_j-1]
+						next_j -= 1
+					if i_target < next_i:
+						self.align += self.seq1.seq[next_i-1]
+						self.pwm_align += self.seq2.seq[next_j-1]
+						next_i -= 1
+						next_j -= 1
 					else:
 						self.align += '-'
-						self.pwm_align += self.seq2.seq[j-1]
-						j -= 1
+						self.pwm_align += self.seq2.seq[next_j-1]
+						next_j -= 1
 				else:
 					self.align += '-'
-					self.pwm_align += self.seq2.seq[j-1]
-					j -= 1
+					self.pwm_align += self.seq2.seq[next_j-1]
+					next_j -= 1
 					
 				# Check whether the choice of gapping up requires the leftward position to also gap up
 				if self.upMat.extend_flag.get_data(i,j) == True:
@@ -830,8 +900,10 @@ class PositionWeightedMatcher():
 				keepGapping = 0
 				self.align += self.seq1.seq[i-1]
 				self.pwm_align += self.seq2.seq[j-1]
-				i -= 1
-				j -= 1
+				next_i -= 1
+				next_j -= 1
+
+			i, j = next_i, next_j
 		
 		# walk-back to index 0 for both i and j; either could be reached first
 		while i > 0:
@@ -936,6 +1008,7 @@ class LocalAlignmentWrapper():
 # 	# Calculates the gap cost in a given direction from a given position, which depends on the node type
 # 	def calculate_gap(self,i,j,seq1,seq2,m,directionM,dirScoreM,TADict,gap_direction):
 # 		isExtend = False
+#		a_c_match = False
 # 		# CType: gap one
 # 		if self.node_types[seq1[i-1]] == 'C':
 # 			# The prior position assuming a gap (index based on m)
@@ -984,9 +1057,10 @@ class LocalAlignmentWrapper():
 # 					gapScore = gapScoreACFinish
 # 					gapPosj = j-1
 # 					isExtend = False
+#					a_c_match = True
 # 				elif gapScoreGapFinish is not None:
 # 					gapScore = gapScoreGapFinish
-# 					gapPosj = j
+#					gapPosj = j
 # 				else:
 # 					gapScore = None
 # 					gapPosj = j
@@ -1001,6 +1075,7 @@ class LocalAlignmentWrapper():
 # 			gapPosj = None 
 # 		dirScoreM.score.set_data(i,j, gapScore)
 # 		dirScoreM.extend_flag.set_data(i,j, isExtend)
+#		dirScoreM.a_c_match.set_data(i,j, a_c_match)
 # 		return [gapScore, gapPosi, gapPosj]
 # 
 # 	# Execute alignment
@@ -1110,43 +1185,48 @@ class LocalAlignmentWrapper():
 # 		initialJ = j
 # 		# walk-back until score of 0 is reached
 # 		while self.scoreMat.get_data(i,j) > 0: 
-# 			prevI = i
-# 			prevJ = j
+# 			i_target = i
+# 			j_target = j
 # 			# Mask this position from future alignment searching
 # 			self.masked.set_data(i,j, 1)
-# 
+#
+#                       next_i, next_j = i, j 
+#
 # 			# if score is a gap in sequence 2 (direction is 1), only walk back on i
 # 			if keepGapping == 1 or keepGapping == 0 and self.directionMat.get_data(i,j) == 1:
 # 				
 # 				# If the node being gapped is a T-node, appropriately gap the entire subtree
 # 				if self.node_types[self.seq1.seq[i-1]] == 'T':
-# 					# Get previ and prevj depending on whether "forced" gapping or not
+# 					# Get i_target and j_target depending on whether "forced" gapping or not
 # 					if keepGapping == 1:
-# 						previ = self.TADict1[i-1]
-# 						prevj = j
+# 						i_target = self.TADict1[i-1]
+#						if self.leftMat.a_c_match.get_data(i,j) == True:
+#							j_target = j-1
+#						else:
+#							j_target = j
 # 					else:
-# 						previ = self.backPos[i,j][0]
-# 						prevj = self.backPos[i,j][1]
+# 						i_target = self.backPos[i,j][0]
+# 						j_target = self.backPos[i,j][1]
 # 
-# 					#print(str(self.backPos[i,j]) + ' ' + str(previ)+' '+str(prevj))
-# 					while i > previ+1: # Walk back with gaps until the one position greater than the final position
-# 						align1 += self.seq1.seq[i-1]
+# 					#print(str(self.backPos[i,j]) + ' ' + str(i_target)+' '+str(j_target))
+# 					while next_i > i_target+1: # Walk back with gaps until the one position greater than the final position
+# 						align1 += self.seq1.seq[next_i-1]
 # 						align2 += '-'
-# 						i -= 1
-# 					if keepGapping != 1 and prevj < j: # If prevj < j, then the gap is preceeded by an A-C match, so add that to the alignment
-# 						align1 += self.seq1.seq[i-1]
-# 						align2 += self.seq2.seq[j-1]
-# 						i -= 1
-# 						j -= 1
+# 						next_i -= 1
+# 					if keepGapping != 1 and j_target < j: # If j_target < j, then the gap is preceeded by an A-C match, so add that to the alignment
+# 						align1 += self.seq1.seq[next_i-1]
+# 						align2 += self.seq2.seq[next_j-1]
+# 						next_i -= 1
+# 						next_j -= 1
 # 					else: # otherwise the A is also gapped
-# 						align1 += self.seq1.seq[i-1]
+# 						align1 += self.seq1.seq[next_i-1]
 # 						align2 += '-'
-# 						i -= 1
+# 						next_i -= 1
 # 				# otherwise just gap the current node (it will be a C-node)
 # 				else:
-# 					align1 += self.seq1.seq[i-1]
+# 					align1 += self.seq1.seq[next_i-1]
 # 					align2 += '-'
-# 					i -= 1
+# 					next_i -= 1
 # 					
 # 				# Check whether the choice of gapping left requires the leftward position to also gap left
 # 				if self.leftMat.extend_flag.get_data(i,j) == True:#[1]:
@@ -1157,31 +1237,34 @@ class LocalAlignmentWrapper():
 # 			# if score is a gap in sequence 1 (direction is 2), only walk back on j
 # 			elif keepGapping == 2 or keepGapping == 0 and self.directionMat.get_data(i,j) == 2:
 # 				if self.node_types[self.seq2.seq[j-1]] == 'T':
-# 					# Get previ and prevj depending on whether "forced" gapping or not
+# 					# Get i_target and j_target depending on whether "forced" gapping or not
 # 					if keepGapping == 2:
-# 						previ = i
-# 						prevj = self.TADict2[j-1]
+#						if self.upMat.a_c_match.get_data(i,j) == True:
+#							i_target = i-1
+#						else:
+#							i_target = i
+# 						j_target = self.TADict2[j-1]
 # 					else:
-# 						previ = self.backPos[i,j][0]
-# 						prevj = self.backPos[i,j][1]
+# 						i_target = self.backPos[i,j][0]
+# 						j_target = self.backPos[i,j][1]
 # 
-# 					while j > prevj+1:
+# 					while next_j > j_target+1:
 # 						align1 += '-'
-# 						align2 += self.seq2.seq[j-1]
-# 						j -= 1
-# 					if keepGapping != 2 and previ < i:
-# 						align1 += self.seq1.seq[i-1]
-# 						align2 += self.seq2.seq[j-1]
-# 						i -= 1
-# 						j -= 1
+# 						align2 += self.seq2.seq[next_j-1]
+# 						next_j -= 1
+# 					if keepGapping != 2 and i_target < next_i:
+# 						align1 += self.seq1.seq[next_i-1]
+# 						align2 += self.seq2.seq[next_j-1]
+# 						next_i -= 1
+# 						next_j -= 1
 # 					else:
 # 						align1 += '-'
-# 						align2 += self.seq2.seq[j-1]
-# 						j -= 1
+# 						align2 += self.seq2.seq[next_j-1]
+# 						next_j -= 1
 # 				else:
 # 					align1 += '-'
-# 					align2 += self.seq2.seq[j-1]
-# 					j -= 1
+# 					align2 += self.seq2.seq[next_j-1]
+# 					next_j -= 1
 # 					
 # 				# Check whether the choice of gapping up requires the leftward position to also gap up
 # 				if self.upMat.extend_flag.get_data(i,j) == True:
@@ -1194,14 +1277,16 @@ class LocalAlignmentWrapper():
 # 				keepGapping = 0
 # 				align1 += self.seq1.seq[i-1]
 # 				align2 += self.seq2.seq[j-1]
-# 				i -= 1
-# 				j -= 1
+# 				next_i -= 1
+# 				next_j -= 1
 # 		
+#                       i, j = next_i, next_j
+#
 # 		# Reverse the alignment strings as they are assembled backwards
 # 		align1 = align1[::-1]
 # 		align2 = align2[::-1]
 # 		
-# 		alignment = LocalAlignmentWrapper(self.seq1,self.seq2,align1,align2,self.scoreMat.get_data(initialI,initialJ),prevI,prevJ,initialI,initialJ)
+# 		alignment = LocalAlignmentWrapper(self.seq1,self.seq2,align1,align2,self.scoreMat.get_data(initialI,initialJ),i_target,j_target,initialI,initialJ)
 # 		return alignment
 # 
 # 	def get_alignments(self,min_score):

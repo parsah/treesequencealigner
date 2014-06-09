@@ -19,6 +19,7 @@ class TreeIndexLogic():
             return 'T'
         if (self.char1 == 'C' and self.char2 == '-') or (self.char2 == 'C' and self.char1 == '-'):
             return 'C'
+        raise Exception("Improper character alignment: "+self.char1+" with "+self.char2)
 
 class TreeLogicFactory():
     '''
